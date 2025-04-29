@@ -1,0 +1,939 @@
+<groupui-grid-row>
+    <groupui-grid-col l="2" m="2" s="2">
+        <div class="side-navigation-secondary">
+            <div>
+                <div style="padding-top: 32px;padding-bottom: 24px; text-align: left">
+                    <groupui-grid>
+                        <groupui-grid-row>
+                            <groupui-grid-col l="12">
+                                <div style="display: flex;">
+                                    <groupui-button *ngIf="!goBackToMeasure" id="wc-backToWorkshopList" variant="tertiary" icon="arrow-left-24"
+                                                    (click)="backToWorkshopList()" data-translate-key="ui.workshops.create-workshop.static.text.button.workshop_list">
+                                        Workshop List
+                                    </groupui-button>
+                                    <groupui-button *ngIf="goBackToMeasure" id="wc-backToMeasure" variant="tertiary" icon="arrow-left-24"
+                                                    (click)="goBackToMeasurePage()">
+                                        {{'ui.workshops.create-workshop.static.text.button.back_to_measure' | staticTranslate}} ({{ measureId }})
+                                    </groupui-button>
+                                    <!-- Clone List Code -->
+                                    <groupui-button id="wc-getLastCloneInList" (click)="getLastCloneInList(editClonedWorkshopDetails?.index)"
+                                                    *ngIf="showNextButton && editClonedWorkshopDetails?.index > 0"
+                                                    iconPosition="left" variant="tertiary"
+                                                    icon="arrow-left-24"></groupui-button>
+                                    <groupui-button id="wc-shownextButton" *ngIf="showNextButton" variant="tertiary">
+                                        {{'ui.workshops.create-workshop.static.text.button.next' | staticTranslate}} ({{ editClonedWorkshopDetails?.index + 1 }}/{{ editClonedWorkshopDetails?.cloneList?.length }})
+                                    </groupui-button>
+                                    <groupui-button id="wc-getNextCloneInList" (click)="getNextCloneInList($event)"
+                                                    disabled="{{editClonedWorkshopDetails?.index + 1 === editClonedWorkshopDetails?.cloneList?.length}}"
+                                                    *ngIf="showNextButton" variant="tertiary"
+                                                    icon="arrow-right-24"></groupui-button>
+                                </div>
+                            </groupui-grid-col>
+                        </groupui-grid-row>
+                    </groupui-grid>
+                </div>
+                <groupui-button id="wc-showWorkshop" [ngClass]="{'background': workshopClick}" (click)="showWorkshop()" style="float: left;"
+                                variant="tertiary"
+                                data-translate-key="ui.workshops.create-workshop.static.text.button.manage_workshop_setup">Manage Workshop Setup
+                </groupui-button>
+                <groupui-button id="wc-measureList" [ngClass]="{'background':measureListClick}" (click)="measureList()"
+                                [disabled]="!workshopSaved || !measureLoaded" style="float: left" variant="tertiary">
+                    {{'ui.workshops.create-workshop.static.text.button.measure_list' | staticTranslate}}
+                    ({{ measureDetails?.length !== 0 ? measureDetails?.content?.length : "0" }})
+                </groupui-button>
+            </div>
+            <div>
+                <groupui-text class="measure-id"
+                              data-translate-key="ui.workshops.create-workshop.static.text.workshop_id">Workshop ID
+                </groupui-text>
+                <groupui-text class="measure-id-text-input">{{ workshopResponse?.id }}</groupui-text>
+
+                <groupui-text class="measure-id"
+                              data-translate-key="ui.workshops.create-workshop.static.text.workshop_creation_date">Workshop Creation Date
+                </groupui-text>
+                <groupui-text class="measure-id-text-input">{{ workshopResponse?.createdOn | date: 'dd/MM/yyyy' }}
+                </groupui-text>
+
+                <groupui-text class="measure-id"
+                              data-translate-key="ui.workshops.create-workshop.static.text.last_updated_date">Last Update Date
+                </groupui-text>
+                <groupui-text class="measure-id-text-input">{{ workshopResponse?.updatedOn | date: 'dd/MM/yyyy' }}
+                </groupui-text>
+
+                <groupui-text class="measure-id"
+                              data-translate-key="ui.workshops.create-workshop.static.text.deletion_date">Deletion Date
+                </groupui-text>
+                <groupui-text
+                        class="measure-id-text-input green-box">{{ workshopResponse?.expirationDate| date: 'dd/MM/yyyy' }}
+                </groupui-text>
+
+                <!-- Clone List Code -->
+                <ng-container *ngIf="(workshopResponse?.sourceWorkshops?.parentWorkshop && numberOfClones !== 0)">
+                    <div class="openCloneButton">
+                        <groupui-button id="wc-cloneList" (click)="cloneList(workshopResponse)" icon="external-link-24"
+                                        variant="tertiary"
+                                        data-translate-key="ui.workshops.create-workshop.static.text.open_clone_list">Open Clone List.
+                        </groupui-button>
+                        <br>
+                    </div>
+                    <div style="display: flex;justify-content: center;padding-top: 8px">
+                        <groupui-text class="cloneText">(<b>{{ numberOfClones }}</b> {{'ui.workshops.create-workshop.static.text.workshop_clone_created' | staticTranslate}})
+                        </groupui-text>
+                    </div>
+                </ng-container>
+                <ng-container
+                        *ngIf="(workshopResponse?.sourceWorkshops && !workshopResponse?.sourceWorkshops?.parentWorkshop)">
+                    <div style="display: flex;justify-content: center">
+                        <groupui-text class="cloneText"
+                                      data-translate-key="ui.workshops.create-workshop.static.text.created_as_clone">Created as Clone of:
+                        </groupui-text>
+                    </div>
+                    <div class="openCloneButton" style="display: flex;justify-content: center;padding-top: 8px">
+                        <groupui-button id="wc-getParentMeasure"
+                                        (click)="getParentMeasure(workshopResponse?.sourceWorkshops?.sourceWorkshopNumber)"
+                                        icon="external-link-24" variant="tertiary">
+                            {{'ui.workshops.create-workshop.static.text.workshop_id' | staticTranslate }}:- {{ workshopResponse?.sourceWorkshops?.sourceWorkshopNumber }}
+                        </groupui-button>
+                        <br>
+                    </div>
+                </ng-container>
+                <groupui-button  icon="copy-24" style="padding-top: 16px;" fullwidth="true" id="wc-createClone"
+                                 (click)="createClone(workshopResponse)" variant="secondary" [disabled]="!editMode || !userRight.includes('WORKSHOP_WRITE_(CREATE_EDIT_AND_CLONE)')"
+                                 data-translate-key="ui.workshops.create-workshop.static.text.button.clone">Clone
+                </groupui-button>
+                <groupui-button id="wc-WSPreview" icon="download-24" fullwidth="true" variant="secondary"
+                                style="padding-top: 8px; padding-bottom: 8px" [disabled]="true"
+                                data-translate-key="ui.workshops.create-workshop.static.text.button.ws_preview">WS Preview
+                </groupui-button>
+                <groupui-button id="wc-downloadA3Sheet" icon="download-24" fullwidth="true" variant="secondary" style="padding-bottom: 8px"
+                                [disabled]="!editMode" data-translate-key="ui.workshops.create-workshop.static.text.button.export_a3" (click)="downloadA3Sheet(workshopResponse?.id)">Export as A3
+                </groupui-button>
+                <groupui-button id="wc-catalogOfMeasures" icon="download-24" fullwidth="true" variant="secondary" style="padding-bottom: 8px"
+                                [disabled]="true"
+                                data-translate-key="ui.workshops.create-workshop.static.text.button.catalog_of_measure">Catalog of Measures
+                </groupui-button>
+            </div>
+
+        </div>
+    </groupui-grid-col>
+
+    <groupui-grid-col l="10" m="10" s="10">
+        <div style="padding: 24px 18px 24px 12px;margin-left: 4%">
+            <div *ngIf="!measureListClick" class="side-navigation-secondary-02">
+                <groupui-grid-row style="padding-top: 12px">
+                    <groupui-grid-col l="4" m="4" s="4">
+                        <form [formGroup]="workshopSetupForm">
+                            <div style="display: flex">
+                                <ng-container *ngIf="!isEditing">
+                                    <groupui-text id="wc-startEditing" class="measure-title">{{ workshopResponse?.title }}</groupui-text>
+                                    <groupui-icon style="padding-top: 5px" (click)="startEditing()"
+                                                  name="edit-24"></groupui-icon>
+                                    *
+                                </ng-container>
+                                <ng-container *ngIf="isEditing">
+                                    <groupui-input appInputSanitization id="wc-updateTitle" *ngIf="isEditing" ngDefaultControl formControlName="workshopTitle"
+                                                   (input)=updateTitle($event) class="measure-title-editable"
+                                                   [severity]="titleValidation ? 'danger' : ''">
+                                        <span class="control-hint" slot="description">
+                                                <span *ngIf="titleValidation">
+                                                        Title is required {{titleValidation}}
+                                                </span>
+                                            </span>
+                                    </groupui-input>
+                                    <groupui-icon id="wc-stopEditing" style="padding-top: 5px;  " (click)="stopEditing()"
+                                                  name="check-24"></groupui-icon>
+                                    *
+                                </ng-container>
+                            </div>
+                        </form>
+                    </groupui-grid-col>
+                    <groupui-grid-col l="8" m="8" s="8" class="display-flex">
+                        <div class="alignment-right">
+                            <div *ngIf="!userRight.includes('WORKSHOP_WRITE_(CREATE_EDIT_AND_CLONE)')" >
+                                <groupui-tooltip position="left" variant="secondary">
+                                    <groupui-button (click)="stopEditing()" [disabled]="!userRight.includes('WORKSHOP_WRITE_(CREATE_EDIT_AND_CLONE)')" data-translate-key="ui.workshops.landing_page.static.text.button.edit"></groupui-button>
+                                    <div slot="tooltip" data-translate-key="ui.workshops.create-workshop.static.edit.button.tooltip.message1">You don't have required rights to Edit this Workshop</div>
+                                </groupui-tooltip>
+                            </div>
+                            <div *ngIf="userRight.includes('WORKSHOP_WRITE_(CREATE_EDIT_AND_CLONE)')" >
+                                <groupui-button id="wc-editWorkshop" [disabled]="!userRight.includes('WORKSHOP_WRITE_(CREATE_EDIT_AND_CLONE)')" (click)="routeToCreateOrEdit(workshopResponse)" variant="primary" data-translate-key="ui.workshops.landing_page.static.text.button.edit">Edit
+                                </groupui-button>
+                            </div>
+
+                        </div>
+                    </groupui-grid-col>
+                    <ng-container *ngIf="!workshopScheduled && editMode">
+                        <groupui-grid-col l="12" s="12" m="12">
+                            <div class="tip-box">
+                                <div>
+                                    <groupui-icon style="color: #1B3E4A; display: inline-list-item "
+                                                  name="warning-filled-24"></groupui-icon>
+                                </div>
+                                <div>
+                                    <span data-translate-key="ui.workshops.create-workshop.static.text.workshop_not_scheduled">This workshop is not scheduled yet.</span>
+                                </div>
+                            </div>
+                        </groupui-grid-col>
+                    </ng-container>
+                </groupui-grid-row>
+
+                <div class="tabs-flexible-width" style="height: 48px; margin-top: 12px;border-bottom: 1px">
+                    <groupui-tabs id="wc-workshopToggle" [attr.active-tab-id]="workshopView" (groupuiTabChange)="workshopToggle($event.detail)"
+                                  no-padding="true">
+                        <groupui-tab tab="Workshop Setup" icon="business-bag-24" name="Workshop Setup"
+                                     content="none"
+                                     data-translate-key="ui.workshops.create-workshop.static.text.tab.workshop_setup">
+                        </groupui-tab>
+                        <groupui-tab tab="Key figures Initial Situation" icon="pencil-24"
+                                     name="Key figures Initial Situation" content="none"
+                                     data-translate-key="ui.workshops.create-workshop.static.text.tab.key_figure">
+                        </groupui-tab>
+                        <groupui-tab tab="Participants" icon="user-group-24" name="Participants"
+                                     content="none"
+                                     data-translate-key="ui.workshops.create-workshop.static.text.tab.participants">
+                        </groupui-tab>
+                    </groupui-tabs>
+                </div>
+                <groupui-divider></groupui-divider>
+                <!--Workshop Setup-->
+                <ng-container *ngIf="workshopView === 'Workshop Setup' && showWorkshopSetUpModule">
+                    <form [formGroup]="workshopSetupForm">
+                        <div style="padding:10px 32px 10px 32px">
+                            <groupui-grid>
+                                <groupui-grid-row style="padding-bottom: 10px; padding-top: 10px; font-size: 20px">
+                                    <groupui-grid-col l="6">
+                                        <b data-translate-key="ui.workshops.create-workshop.static.text.assigned_to">Assigned To :</b>
+                                    </groupui-grid-col>
+                                </groupui-grid-row>
+                                <groupui-grid-row>
+                                    <groupui-grid-col s="6" m="6" l="6">
+                                        <div style="display: flex">
+                                            <span slot="label" style="padding-bottom: 2px;"
+                                                  class="control-label">{{'ui.workshops.create-workshop.static.text.label.select_ou_label' | staticTranslate}}*</span>
+                                        </div>
+                                        <div>
+                                            <groupui-input id="wc-ou" ngDefaultControl formControlName="ou" readonly="true" (click)="!editMode ? ouModalOpen = true : null;" data-translate-key="ui.workshops.create-workshop.static.text.label.select_ou_placeholder"
+                                                           [severity]="(workshopSetupForm.controls.ou.touched || isSubmitted) && workshopSetupForm.controls.ou.invalid ? 'danger' : ''">
+                                            <span *ngIf="(workshopSetupForm.controls.ou.touched || isSubmitted) && workshopSetupForm.controls.ou.invalid"
+                                                  class="control-hint" slot="description">
+                                                <span *ngIf="workshopSetupForm.controls.ou.errors.required"
+                                                      data-translate-key="ui.workshops.create-workshop.static.text.label.select_ou_required">
+                                                        OU is required
+                                                </span>
+                                            </span>
+                                            </groupui-input>
+
+                                        </div>
+                                    </groupui-grid-col>
+                                    <groupui-grid-col s="6" m="6" l="6">
+                                        <div style="display: flex">
+                                            <span slot="label" style="padding-bottom: 2px;" class="control-label">{{'ui.workshops.create-workshop.static.text.label.select_responsible' | staticTranslate}}*</span>
+                                        </div>
+                                        <div>
+                                            <groupui-input id="wc-responsibleName" ngDefaultControl formControlName="responsibleName"
+                                                           data-translate-key="ui.workshops.create-workshop.static.text.label.select_responsible_placeholder"
+                                                           [severity]="(workshopSetupForm.controls.responsibleName.touched || isSubmitted) && workshopSetupForm.controls.responsibleName.invalid ? 'danger' : ''" (click)="personSearchOpen = true;setResponsibleType = 0" readonly>
+                                                <span *ngIf="(workshopSetupForm.controls.responsibleName.touched || isSubmitted) && workshopSetupForm.controls.responsibleName.invalid"
+                                                      class="control-hint" slot="description">
+                                                <span *ngIf="workshopSetupForm.controls.responsibleName.errors.required"
+                                                      data-translate-key="ui.workshops.create-workshop.static.text.label.select_responsible_required">
+                                                        Responsible is required
+                                                </span>
+                                            </span>
+                                            </groupui-input>
+                                        </div>
+                                    </groupui-grid-col>
+                                </groupui-grid-row>
+
+                                <groupui-grid-row style="padding-top: 16px;">
+                                    <groupui-grid-col s="6" m="6" l="6">
+                                        <div style="display: flex">
+                                            <span slot="label" style="padding-bottom: 2px;" class="control-label"
+                                                  data-translate-key="ui.workshops.create-workshop.static.text.label.head_of_ou">Head of the OU</span>
+                                        </div>
+                                        <div>
+                                            <groupui-input id="wc-headOfOuName" data-translate-key="ui.workshops.create-workshop.static.text.label.head_of_ou_placeholder" ngDefaultControl
+                                                           formControlName="headOfOuName" (click)="personSearchOpen = true;setResponsibleType = 1" readonly>
+                                            </groupui-input>
+                                        </div>
+                                    </groupui-grid-col>
+                                    <groupui-grid-col s="6" m="6" l="6">
+                                        <div style="display: flex">
+                                            <span slot="label" style="padding-bottom: 2px;" class="control-label"
+                                                  data-translate-key="ui.workshops.create-workshop.static.text.label.presenter">Presenter</span>
+                                        </div>
+                                        <div>
+                                            <groupui-input id="wc-i-presenterName"
+                                                           data-translate-key="ui.workshops.create-workshop.static.text.label.presenter_placeholder" ngDefaultControl
+                                                           formControlName="presenterName" (click)="personSearchOpen = true;setResponsibleType = 2" readonly>
+                                            </groupui-input>
+                                        </div>
+                                    </groupui-grid-col>
+                                </groupui-grid-row>
+                            </groupui-grid>
+                            <groupui-grid>
+                                <groupui-grid-row style="padding-bottom: 10px; padding-top: 16px; font-size: 20px">
+                                    <groupui-grid-col l="6">
+                                        <b data-translate-key="ui.workshops.create-workshop.static.text.heading.fill_in_details">Fill in the workshop details :</b>
+                                    </groupui-grid-col>
+                                </groupui-grid-row>
+                                <groupui-grid-row>
+                                    <groupui-grid-col s="6" m="6" l="6">
+                                        <groupui-select (click)="checkMaskValidation()" id="wc-s-maskWave" data-translate-key="ui.workshops.create-workshop.static.text.placeholder.mask_wave" ngDefaultControl
+                                                        formControlName="maskWaveId" noValidation
+                                                        [severity]="(workshopSetupForm.controls.maskWaveId.touched || isSubmitted) && workshopSetupForm.controls.maskWaveId.invalid ? 'danger' : ''">
+                                            <span slot="label" class="control-label">{{'ui.workshops.create-workshop.static.text.label.mask_wave' | staticTranslate}}*</span>
+                                            <span *ngIf="(workshopSetupForm.controls.maskWaveId.touched || isSubmitted) && workshopSetupForm.controls.maskWaveId.invalid"
+                                                  class="control-hint" slot="description">
+                                                <span *ngIf="workshopSetupForm.controls.maskWaveId.errors.required" data-translate-key="ui.workshops.create-workshop.static.text.required.mask_wave">
+                                                    Mask/Wave is required
+                                                </span>
+                                            </span>
+
+                                            <ng-container *ngFor="let wave of accessWaveList; let i = index">
+                                                <!-- Use index to access the corresponding createdOnVersion -->
+                                                <groupui-select-option [disabled]="!wave.setPermission" id="wc-s-{{wave?.maskName}}" [value]="wave?.id" (click)="setWave(wave?.id)">
+                                                    {{ wave?.textResource?.name | dynamicTranslate}}
+                                                </groupui-select-option>
+                                            </ng-container>
+                                        </groupui-select>
+                                    </groupui-grid-col>
+
+                                    <ng-container *ngIf="workshopSetupForm.get('maskWaveId').value!==''">
+                                        <groupui-grid-col s="3" m="3" l="3">
+                                            <groupui-select id="wc-s-kindOfWorkshop" maxHeight="200px" data-translate-key="ui.workshops.create-workshop.static.text.placeholder.select_kind"
+                                                            ngDefaultControl formControlName="kindOfWorkshop"
+                                                            noValidation
+                                                            [severity]="(workshopSetupForm.controls.kindOfWorkshop.touched || isSubmitted) && workshopSetupForm.controls.kindOfWorkshop.invalid ? 'danger' : ''">
+                                        <span *ngIf="(workshopSetupForm.controls.kindOfWorkshop.touched || isSubmitted) && workshopSetupForm.controls.kindOfWorkshop.invalid"
+                                              class="control-hint" slot="description">
+                                                <span *ngIf="workshopSetupForm.controls.kindOfWorkshop.errors.required" data-translate-key="ui.workshops.create-workshop.static.text.required.select_kind">
+                                                    Kind of workshop is required
+                                                </span>
+                                            </span>
+                                                <span slot="label" class="control-label">
+                                                    {{ 'ui.workshops.create-workshop.static.text.label.select_kind' | staticTranslate }}
+                                                    <span *ngIf="+workshopSetupForm.get('maskWaveId').value===37 || workshopSetupForm.get('maskWaveId').value===''
+                                                    || +workshopSetupForm.get('maskWaveId').value===39">*</span>
+                                                </span>
+                                                <ng-container *ngFor="let kind of kindOfWorkshopList; let i = index">
+                                                    <!-- Use index to access the corresponding createdOnVersion -->
+                                                    <groupui-select-option id="wc-so-{{kind.key}}" [data-translate-key]="kind.key" [value]="kind?.name"
+                                                                           (click)="setKindOfWorkshop(kind?.name)">
+                                                        {{ kind.name }}
+                                                    </groupui-select-option>
+                                                </ng-container>
+                                            </groupui-select>
+                                        </groupui-grid-col>
+
+                                        <ng-container *ngIf="+workshopSetupForm.get('maskWaveId').value===37 || workshopSetupForm.get('maskWaveId').value===''
+                                || +workshopSetupForm.get('maskWaveId').value===39
+                                || +workshopSetupForm.get('maskWaveId').value===40
+                                || +workshopSetupForm.get('maskWaveId').value===41
+                                || +workshopSetupForm.get('maskWaveId').value===42
+
+">
+                                            <groupui-grid-col s="3" m="3" l="3">
+                                                <groupui-select id="wc-s-method" maxHeight="200px" data-translate-key="ui.workshops.create-workshop.static.text.placeholder.method"
+                                                                ngDefaultControl formControlName="method">
+                                                    <span slot="label" class="control-label" data-translate-key="ui.workshops.create-workshop.static.text.label.method">Method</span>
+                                                    <ng-container *ngFor="let m of methodList; let i = index">
+                                                        <!-- Use index to access the corresponding createdOnVersion -->
+                                                        <groupui-select-option id="wc-so-{{m.key}}" [data-translate-key]="m.key" [value]="m?.name" (click)="setMethod(m)">
+                                                            {{ m?.name }}
+                                                        </groupui-select-option>
+                                                    </ng-container>
+                                                </groupui-select>
+                                            </groupui-grid-col>
+                                        </ng-container>
+
+                                        <ng-container
+                                                *ngIf="+workshopSetupForm.get('maskWaveId').value===38">
+                                            <groupui-grid-col s="3" m="3" l="3">
+                                                <groupui-select id="wc-s-method2" maxHeight="200px" data-translate-key="ui.workshops.create-workshop.static.text.placeholder.method"
+                                                                ngDefaultControl formControlName="method" noValidation
+                                                                [severity]="(workshopSetupForm.controls.method.touched || isSubmitted) && workshopSetupForm.controls.method.invalid ? 'danger' : ''">
+                                        <span *ngIf="(workshopSetupForm.controls.method.touched || isSubmitted) && workshopSetupForm.controls.method.invalid"
+                                              class="control-hint" slot="description">
+                                                <span *ngIf="workshopSetupForm.controls.method.errors.required">
+                                                    ==>* {{'ui.workshops.create-workshop.static.text.required.method' | staticTranslate}}
+                                                </span>
+                                            </span>
+                                                    <span slot="label" class="control-label">==>*</span>
+                                                    <ng-container *ngFor="let m of methodList; let i = index">
+                                                        <!-- Use index to access the corresponding createdOnVersion -->
+                                                        <groupui-select-option id="wc-so-{{m.key}}" [data-translate-key]="m.key" [value]="m?.name" (click)="setMethod(m)">
+                                                            {{ m?.name }}
+                                                        </groupui-select-option>
+                                                    </ng-container>
+                                                </groupui-select>
+                                            </groupui-grid-col>
+                                        </ng-container>
+                                    </ng-container>
+                                </groupui-grid-row>
+                                <groupui-grid-row>
+                                    <groupui-grid-col s="6" m="6" l="6" style="padding-top: 10px">
+                                        <groupui-select id="wc-s-trade" maxHeight="200px" data-translate-key="ui.workshops.create-workshop.static.text.placeholder.trade" ngDefaultControl
+                                                        formControlName="trade"
+                                                        [severity]="(workshopSetupForm.controls.trade.touched || isSubmitted) && workshopSetupForm.controls.trade.invalid ? 'danger' : ''">
+                                            <span slot="label" class="control-label">{{'ui.workshops.create-workshop.static.text.label.trade' | staticTranslate}}
+                                                <span *ngIf="+workshopSetupForm.get('maskWaveId').value===41
+                                                    || +workshopSetupForm.get('maskWaveId').value===37">*</span>
+                                                </span>
+                                            <span *ngIf="(workshopSetupForm.controls.trade.touched || isSubmitted) && workshopSetupForm.controls.trade.invalid"
+                                                  class="control-hint" slot="description">
+                                                <span *ngIf="workshopSetupForm.controls.trade.errors.required" data-translate-key="ui.workshops.create-workshop.static.text.required.trade">
+                                                    Trade is required
+                                                </span>
+                                            </span>
+                                            <ng-container *ngFor="let trade of tradeList; let i = index">
+                                                <!-- Use index to access the corresponding createdOnVersion -->
+                                                <groupui-select-option id="wc-so-trade.key" [data-translate-key]="trade.key" [value]="trade.name">
+                                                    {{ trade.name }}
+                                                </groupui-select-option>
+                                            </ng-container>
+                                        </groupui-select>
+                                    </groupui-grid-col>
+                                    <groupui-grid-col s="6" m="6" l="6" style="padding-top: 10px">
+                                        <groupui-input id="wc-gi-team" data-translate-key="ui.workshops.create-workshop.static.text.placeholder.team" ngDefaultControl
+                                                       formControlName="team">
+                                            <span slot="label" class="control-label" data-translate-key="ui.workshops.create-workshop.static.text.label.team">Team</span>
+                                        </groupui-input>
+                                    </groupui-grid-col>
+                                </groupui-grid-row>
+                                <groupui-grid-row>
+                                    <groupui-grid-col s="6" m="6" l="6" style="padding-top: 10px">
+                                        <groupui-select maxHeight="200px" id="wc-s-topicArea" (click)="checkTopicAreCondition()"
+                                                        data-translate-key="ui.workshops.create-workshop.static.text.placeholder.topic" ngDefaultControl
+                                                        formControlName="topicArea"
+                                                        [severity]="(workshopSetupForm.controls.topicArea.touched || isSubmitted) && workshopSetupForm.controls.topicArea.invalid ? 'danger' : ''">
+                                            <span slot="label" class="control-label">{{'ui.workshops.create-workshop.static.text.label.topic'|staticTranslate}}*</span>
+                                            <span *ngIf="(workshopSetupForm.controls.topicArea.touched || isSubmitted) && workshopSetupForm.controls.topicArea.invalid"
+                                                  class="control-hint" slot="description">
+                                                <span *ngIf="workshopSetupForm.controls.topicArea.errors.required" data-translate-key="ui.workshops.create-workshop.static.text.required.topic">
+                                                    Topic-Area is required
+                                                </span>
+                                            </span>
+                                            <ng-container *ngFor="let topic of topicAreaResponse">
+                                                <groupui-select-option id="wc-so-{{topic.title}}" (click)="topicAreaName(topic)"
+                                                                       [value]="topic.id">{{ topic?.orgUnit?.deptName +' : '+  topic?.title }}
+                                                </groupui-select-option>
+                                            </ng-container>
+                                        </groupui-select>
+                                    </groupui-grid-col>
+                                    <groupui-grid-col s="6" m="6" l="6" style="padding-top: 10px">
+                                        <groupui-text
+                                                style="padding-top: 5px;font-size: 14px;font-weight: bold;margin-bottom: 0.25rem;color: rgb(76, 83, 86);" data-translate-key="ui.workshops.create-workshop.static.text.label.info_mail">
+                                            Info-mail setup
+                                        </groupui-text>
+                                        <div style="display: flex">
+                                            <groupui-checkbox id="wc-gc-infoMail1" value="infoMail1" ngDefaultControl noValidation
+                                                              formControlName="infoMail1">
+                                                <groupui-text data-translate-key="ui.workshops.create-workshop.static.text.label.info_mail1">info-mail 1</groupui-text>
+                                            </groupui-checkbox>
+                                            <groupui-checkbox  id="wc-gc-infoMail2" value="infoMail2" ngDefaultControl noValidation
+                                                               formControlName="infoMail2" style="padding-left: 32px">
+                                                <groupui-text data-translate-key="ui.workshops.create-workshop.static.text.label.info_mail2">info-mail 2</groupui-text>
+                                            </groupui-checkbox>
+                                        </div>
+                                    </groupui-grid-col>
+                                </groupui-grid-row>
+
+                                <groupui-grid-row>
+                                    <groupui-grid-col s="2" m="2" l="2" style="padding-top: 10px">
+                                        <groupui-date-picker  id="wc-dp-startDate" placeholder="From" ngDefaultControl
+                                                              formControlName="startDate"
+                                                              [severity]="(workshopSetupForm.controls.startDate.touched || isSubmitted) && workshopSetupForm.controls.startDate.invalid ? 'danger' : ''">
+                                            <span slot="label" class="control-label">{{'ui.workshops.create-workshop.static.text.label.start_Date' | staticTranslate}}*</span>
+                                            <span *ngIf="(workshopSetupForm.controls.startDate.touched || isSubmitted) && workshopSetupForm.controls.startDate.invalid"
+                                                  class="control-hint" slot="description">
+                                                <span *ngIf="workshopSetupForm.controls.startDate.errors.required" data-translate-key="ui.workshops.create-workshop.static.text.required.start_Date">
+                                                        Start date is required
+                                                </span>
+                                        </span>
+                                        </groupui-date-picker>
+                                    </groupui-grid-col>
+                                    <groupui-grid-col
+                                            style="padding-top: 20px;display: flex;justify-content: center;align-items: center"
+                                            s="2" m="2" l="2">
+                                        _
+                                    </groupui-grid-col>
+                                    <groupui-grid-col s="2" m="2" l="2" style="padding-top: 31px">
+                                        <groupui-date-picker  id="wc-dp-endDate"
+                                                              [minDate]="workshopSetupForm.controls['startDate']?.value | date: 'dd.MM.yyyy'"
+                                                              placeholder="To" ngDefaultControl formControlName="endDate"
+                                                              [severity]="(workshopSetupForm.controls.endDate.touched || isSubmitted) && workshopSetupForm.controls.endDate.invalid ? 'danger' : ''">
+                                            <span slot="label" class="control-label"></span>
+                                            <span *ngIf="(workshopSetupForm.controls.endDate.touched || isSubmitted) && workshopSetupForm.controls.endDate.invalid"
+                                                  class="control-hint" slot="description">
+                                                <span *ngIf="workshopSetupForm.controls.endDate.errors.required" data-translate-key="ui.workshops.create-workshop.static.text.required.end_Date">
+                                                        End date is required
+                                                </span>
+                                        </span>
+                                        </groupui-date-picker>
+                                    </groupui-grid-col>
+
+                                    <groupui-grid-col s="2" m="2" l="2" style="padding-top: 10px">
+                                        <groupui-select  id="wc-s-timeFrom" maxHeight="200px" data-translate-key="ui.workshops.create-workshop.static.text.placeholder.from" ngDefaultControl
+                                                         formControlName="timeFrom" noValidation
+                                                         [severity]="(workshopSetupForm.controls.timeFrom.touched || isSubmitted) && workshopSetupForm.controls.timeFrom.invalid ? 'danger' : ''">
+                                            <span slot="label" class="control-label">{{'ui.workshops.create-workshop.static.text.label.select_time' | staticTranslate}}*</span>
+                                            <span *ngIf="(workshopSetupForm.controls.timeFrom.touched || isSubmitted) && workshopSetupForm.controls.timeFrom.invalid"
+                                                  class="control-hint" slot="description">
+                                                <span *ngIf="workshopSetupForm.controls.timeFrom.errors.required" data-translate-key="ui.workshops.create-workshop.static.text.required.timeTo">
+                                                        Time is required
+                                                </span>
+                                        </span>
+                                            <div *ngFor="let time of timeIntervals; let i = index">
+                                                <groupui-select-option id="wc-time-{{time}}" (click)="setTimeFromIndex(time)"
+                                                                       [value]="time">{{ time }}
+                                                </groupui-select-option>
+                                            </div>
+                                        </groupui-select>
+                                    </groupui-grid-col>
+                                    <groupui-grid-col
+                                            style="padding-top: 20px;display: flex;justify-content: center;align-items: center"
+                                            s="2" m="2" l="2">
+                                        _
+                                    </groupui-grid-col>
+                                    <groupui-grid-col s="2" m="2" l="2" style="padding-top: 31px">
+                                        <groupui-select id="wc-s-timeTo" [value]="timeIntervals[selectedFromIndex + 1]" maxHeight="200px"
+                                                        data-translate-key="ui.workshops.create-workshop.static.text.placeholder.to" ngDefaultControl formControlName="timeTo"
+                                                        noValidation
+                                                        [severity]="(workshopSetupForm.controls.timeTo.touched || isSubmitted) && workshopSetupForm.controls.timeTo.invalid ? 'danger' : ''">
+                                            <span slot="label" class="control-label"></span>
+                                            <span *ngIf="(workshopSetupForm.controls.timeTo.touched || isSubmitted) && workshopSetupForm.controls.timeTo.invalid"
+                                                  class="control-hint" slot="description">
+                                                <span *ngIf="workshopSetupForm.controls.timeTo.errors.required" data-translate-key="ui.workshops.create-workshop.static.text.required.timeTo">
+                                                        Time is required
+                                                </span>
+                                        </span>
+                                            <div *ngFor="let time of timeIntervals.slice(selectedFromIndex + 1); let i = index">
+                                                <groupui-select-option id="wc-so-{{time}}" [value]="time">{{ time }}</groupui-select-option>
+                                            </div>
+                                        </groupui-select>
+                                    </groupui-grid-col>
+                                </groupui-grid-row>
+                            </groupui-grid>
+                        </div>
+                    </form>
+                </ng-container>
+                <!--Key figures Initial Situation-->
+                <ng-container *ngIf="workshopView === 'Key figures Initial Situation'">
+                    <form [formGroup]="keyFiguresForm">
+                        <div style="padding:10px 32px 10px 32px">
+                            <groupui-grid>
+                                <groupui-grid-row style="padding-bottom: 10px; padding-top: 10px; font-size: 20px">
+                                    <groupui-grid-col s="6" m="6" l="6">
+                                        <b data-translate-key="ui.workshops.key-figures.static.text.heading.key_figures">Enter Key Figure Initial Situation:</b>
+                                    </groupui-grid-col>
+                                </groupui-grid-row>
+
+                                <groupui-grid-row>
+                                    <groupui-grid-col s="3" m="3" l="3">
+                                        <groupui-input id="wc-gi-costsPerYears" min="0" type="number" ngDefaultControl formControlName="costsPerYears"
+                                                       [severity]="keyFiguresForm.controls.costsPerYears.invalid ? 'danger' : ''">>
+                                            <span slot="label" class="control-label" data-translate-key="ui.workshops.key-figures.static.text.label.cost_year">Costs/year</span>
+                                            <span *ngIf="!keyFiguresForm.controls.costsPerYears.invalid" slot="description" data-translate-key="ui.workshops.key-figures.static.text.desc.thousand-euros">Thousand Euros</span>
+                                            <span *ngIf="keyFiguresForm.controls.costsPerYears.invalid"
+                                                  class="control-hint" slot="description">
+                                                <span *ngIf="keyFiguresForm.controls.costsPerYears.errors.min" data-translate-key="ui.workshops.key-figures.static.placeholder.required.message">
+                                                        Value should not be negative
+                                                </span>
+                                        </span>
+                                        </groupui-input>
+                                    </groupui-grid-col>
+                                    <groupui-grid-col s="3" m="3" l="3">
+                                        <groupui-input id="wc-gi-personYears" min="0" type="number" ngDefaultControl formControlName="personYears"
+                                                       [severity]="keyFiguresForm.controls.personYears.invalid ? 'danger' : ''">>
+                                            <span slot="label" class="control-label" data-translate-key="ui.workshops.key-figures.static.text.label.persons_year">Person-years (net)</span>
+                                            <span *ngIf="keyFiguresForm.controls.personYears.invalid"
+                                                  class="control-hint" slot="description">
+                                                <span *ngIf="keyFiguresForm.controls.personYears.errors.min">
+                                                        Value should not be negative
+                                                </span>
+                                        </span>
+                                        </groupui-input>
+                                    </groupui-grid-col>
+                                    <groupui-grid-col s="3" m="3" l="3">
+                                        <groupui-input id="wc-gi-productiveTimeReport" min="0" type="number" ngDefaultControl
+                                                       formControlName="productiveTimeReport"
+                                                       [severity]="keyFiguresForm.controls.productiveTimeReport.invalid ? 'danger' : ''">>
+                                            <span slot="label"
+                                                  class="control-label" data-translate-key="ui.workshops.key-figures.static.text.label.prod_time_report">Productive Time (report model)</span>
+                                            <span *ngIf="!keyFiguresForm.controls.productiveTimeReport.invalid" slot="description" data-translate-key="ui.workshops.key-figures.static.text.desc.min">min.</span>
+                                            <span *ngIf="keyFiguresForm.controls.productiveTimeReport.invalid"
+                                                  class="control-hint" slot="description">
+                                                <span *ngIf="keyFiguresForm.controls.productiveTimeReport.errors.min">
+                                                        Value should not be negative
+                                                </span>
+                                        </span>
+                                        </groupui-input>
+                                    </groupui-grid-col>
+                                    <groupui-grid-col s="3" m="3" l="3">
+                                        <groupui-input id="wc-gi-productiveTimeAverage" min="0" type="number" ngDefaultControl
+                                                       formControlName="productiveTimeAverage"
+                                                       [severity]="keyFiguresForm.controls.productiveTimeAverage.invalid ? 'danger' : ''">>
+                                            <span slot="label"
+                                                  class="control-label" data-translate-key="ui.workshops.key-figures.static.text.label.prod_time_average">Productive Time (average model)</span>
+                                            <span *ngIf="!keyFiguresForm.controls.productiveTimeAverage.invalid" slot="description" data-translate-key="ui.workshops.key-figures.static.text.desc.min">min.</span>
+                                            <span *ngIf="keyFiguresForm.controls.productiveTimeAverage.invalid"
+                                                  class="control-hint" slot="description">
+                                                <span *ngIf="keyFiguresForm.controls.productiveTimeAverage.errors.min">
+                                                        Value should not be negative
+                                                </span>
+                                        </span>
+                                        </groupui-input>
+                                    </groupui-grid-col>
+                                </groupui-grid-row>
+
+                                <groupui-grid-row style="padding-top: 16px">
+                                    <groupui-grid-col s="3" m="3" l="3">
+                                        <groupui-input id="wc-gi-labourTimeConsumed" min="0" type="number" ngDefaultControl
+                                                       formControlName="labourTimeConsumed"
+                                                       [severity]="keyFiguresForm.controls.labourTimeConsumed.invalid ? 'danger' : ''">>
+                                            <span slot="label" class="control-label" data-translate-key="ui.workshops.key-figures.static.text.label.labour_hours_time">Labour hours/time consumed</span>
+                                            <span *ngIf="!keyFiguresForm.controls.labourTimeConsumed.invalid" slot="description" data-translate-key="ui.workshops.key-figures.static.text.desc.min_part">min./Part</span>
+                                            <span *ngIf="keyFiguresForm.controls.labourTimeConsumed.invalid"
+                                                  class="control-hint" slot="description">
+                                                <span *ngIf="keyFiguresForm.controls.labourTimeConsumed.errors.min">
+                                                        Value should not be negative
+                                                </span>
+                                        </span>
+                                        </groupui-input>
+                                    </groupui-grid-col>
+                                    <groupui-grid-col s="3" m="3" l="3">
+                                        <groupui-input id="wc-gi-processingTime" min="0" type="number" ngDefaultControl formControlName="processingTime"
+                                                       [severity]="keyFiguresForm.controls.processingTime.invalid ? 'danger' : ''">>
+                                            <span slot="label" class="control-label" data-translate-key="ui.workshops.key-figures.static.text.label.processing_time">Processing Time</span>
+                                            <span *ngIf="!keyFiguresForm.controls.processingTime.invalid" slot="description" data-translate-key="ui.workshops.key-figures.static.text.desc.min">min.</span>
+                                            <span *ngIf="keyFiguresForm.controls.processingTime.invalid"
+                                                  class="control-hint" slot="description">
+                                                <span *ngIf="keyFiguresForm.controls.processingTime.errors.min">
+                                                        Value should not be negative
+                                                </span>
+                                        </span>
+                                        </groupui-input>
+                                    </groupui-grid-col>
+                                    <groupui-grid-col s="3" m="3" l="3">
+                                        <groupui-input id="wc-gi-unitsPerDay" min="0" type="number" ngDefaultControl formControlName="unitsPerDay"
+                                                       [severity]="keyFiguresForm.controls.unitsPerDay.invalid ? 'danger' : ''">>
+                                            <span slot="label" class="control-label" data-translate-key="ui.workshops.key-figures.static.text.label.units_days">Units/Day</span>
+                                            <span *ngIf="keyFiguresForm.controls.unitsPerDay.invalid"
+                                                  class="control-hint" slot="description">
+                                                <span *ngIf="keyFiguresForm.controls.unitsPerDay.errors.min">
+                                                        Value should not be negative
+                                                </span>
+                                        </span>
+                                        </groupui-input>
+                                    </groupui-grid-col>
+                                    <groupui-grid-col s="3" m="3" l="3">
+                                        <groupui-input id="wc-gi-strokesHEE" min="0" type="number" ngDefaultControl formControlName="strokesHEE"
+                                                       [severity]="keyFiguresForm.controls.strokesHEE.invalid ? 'danger' : ''">>
+                                            <span slot="label" class="control-label" data-translate-key="ui.workshops.key-figures.static.text.label.strokes">Strokes/h/EE</span>
+                                            <span *ngIf="keyFiguresForm.controls.strokesHEE.invalid"
+                                                  class="control-hint" slot="description">
+                                                <span *ngIf="keyFiguresForm.controls.strokesHEE.errors.min">
+                                                        Value should not be negative
+                                                </span>
+                                        </span>
+                                        </groupui-input>
+                                    </groupui-grid-col>
+                                </groupui-grid-row>
+
+                                <groupui-grid-row style="padding-top: 16px">
+                                    <groupui-grid-col s="3" m="3" l="3">
+                                        <groupui-input id="wc-gi-inventory" min="0" type="number" ngDefaultControl formControlName="inventory"
+                                                       [severity]="keyFiguresForm.controls.inventory.invalid ? 'danger' : ''">>
+                                            <span slot="label" class="control-label" data-translate-key="ui.workshops.key-figures.static.text.label.inventory">Inventory</span>
+                                            <span *ngIf="!keyFiguresForm.controls.inventory.invalid" slot="description" data-translate-key="ui.workshops.key-figures.static.text.desc.thousand-euros">Thousand Euros</span>
+                                            <span *ngIf="keyFiguresForm.controls.inventory.invalid"
+                                                  class="control-hint" slot="description">
+                                                <span *ngIf="keyFiguresForm.controls.inventory.errors.min">
+                                                        Value should not be negative
+                                                </span>
+                                        </span>
+                                        </groupui-input>
+                                    </groupui-grid-col>
+                                    <groupui-grid-col s="3" m="3" l="3">
+                                        <groupui-input id="wc-gi-areas" min="0" type="number" ngDefaultControl formControlName="areas"
+                                                       [severity]="keyFiguresForm.controls.areas.invalid ? 'danger' : ''">>
+                                            <span slot="label" class="control-label" data-translate-key="ui.workshops.key-figures.static.text.label.areas">Areas</span>
+                                            <span *ngIf="!keyFiguresForm.controls.areas.invalid" slot="description" data-translate-key="ui.workshops.key-figures.static.text.desc.m4">m^4</span>
+                                            <span *ngIf="keyFiguresForm.controls.areas.invalid"
+                                                  class="control-hint" slot="description">
+                                                <span *ngIf="keyFiguresForm.controls.areas.errors.min">
+                                                        Value should not be negative
+                                                </span>
+                                        </span>
+                                        </groupui-input>
+                                    </groupui-grid-col>
+                                    <groupui-grid-col s="2" m="2" l="2">
+                                        <groupui-input id="wc-gi-ergonomicWorkstations" min="0" type="number" ngDefaultControl
+                                                       formControlName="ergonomicWorkstations"
+                                                       [severity]="keyFiguresForm.controls.ergonomicWorkstations.invalid ? 'danger' : ''">>
+                                            <span slot="label" class="control-label" data-translate-key="ui.workshops.key-figures.static.text.label.ergonomic_work">Ergonomic workstations</span>
+                                            <span *ngIf="keyFiguresForm.controls.ergonomicWorkstations.invalid"
+                                                  class="control-hint" slot="description">
+                                                <span *ngIf="keyFiguresForm.controls.ergonomicWorkstations.errors.min">
+                                                        Value should not be negative
+                                                </span>
+                                        </span>
+                                        </groupui-input>
+                                    </groupui-grid-col>
+                                    <groupui-grid-col style="display: flex;justify-content: center;align-items: center"
+                                                      s="2" m="2" l="2">
+                                        <span data-translate-key="ui.workshops.key-figures.static.text.thereof_critical">thereof critical</span>
+                                    </groupui-grid-col>
+                                    <groupui-grid-col style="padding-top: 18px" s="2" m="2" l="2">
+                                        <groupui-input id="wc-gi-thereOfCritical" min="0" type="number" ngDefaultControl formControlName="thereOfCritical"
+                                                       [severity]="keyFiguresForm.controls.thereOfCritical.invalid ? 'danger' : ''">>
+                                            <span slot="label" class="control-label"></span>
+                                            <span *ngIf="keyFiguresForm.controls.thereOfCritical.invalid"
+                                                  class="control-hint" slot="description">
+                                                <span *ngIf="keyFiguresForm.controls.thereOfCritical.errors.min">
+                                                        Value should not be negative
+                                                </span>
+                                        </span>
+                                        </groupui-input>
+                                    </groupui-grid-col>
+                                </groupui-grid-row>
+
+                                <groupui-grid-row style="padding-bottom: 10px; padding-top: 10px; font-size: 20px">
+                                    <groupui-grid-col s="6" m="6" l="6">
+                                        <b data-translate-key="ui.workshops.key-figures.static.heading.notes">Notes</b>
+                                    </groupui-grid-col>
+                                </groupui-grid-row>
+
+                                <groupui-grid-row>
+                                    <groupui-grid-col s="6" m="6" l="6">
+                                        <groupui-textarea id="wc-gText-initialSituationActualNotes" ngDefaultControl formControlName="initialSituationActualNotes"
+                                                          data-translate-key="ui.workshops.key-figures.static.text.placeholder.initial_situations" rows="4">
+                                            <span slot="label" data-translate-key="ui.workshops.key-figures.static.text.label.initial_situations">Initial Situation (Actual)</span>
+                                        </groupui-textarea>
+                                    </groupui-grid-col>
+                                    <groupui-grid-col s="6" m="6" l="6">
+                                        <groupui-textarea id="wc-gText-afterSituationTargetNotes" ngDefaultControl formControlName="afterSituationTargetNotes"
+                                                          data-translate-key="ui.workshops.key-figures.static.text.placeholder.after_situation" rows="4">
+                                            <span slot="label" data-translate-key="ui.workshops.key-figures.static.text.label.after_situation">After Situation (Target)</span>
+                                        </groupui-textarea>
+                                    </groupui-grid-col>
+                                </groupui-grid-row>
+
+                                <groupui-grid-row>
+                                    <groupui-grid-col s="6" m="6" l="6">
+                                        <groupui-textarea id="wc-gText-objectiveAndRange" ngDefaultControl formControlName="objectiveAndRange"
+                                                          data-translate-key="ui.workshops.key-figures.static.placeholder.label.objective_range" rows="4">
+                                            <span slot="label" data-translate-key="ui.workshops.key-figures.static.text.label.objective_range">Objective and Range</span>
+                                        </groupui-textarea>
+                                    </groupui-grid-col>
+                                    <groupui-grid-col s="6" m="6" l="6">
+                                        <groupui-textarea id="wc-gText-calculation" ngDefaultControl formControlName="calculation"
+                                                          data-translate-key="ui.workshops.key-figures.static.placeholder.label.calculation" rows="4">
+                                            <span slot="label" data-translate-key="ui.workshops.key-figures.static.text.label.calculation">Calculation</span>
+                                        </groupui-textarea>
+                                    </groupui-grid-col>
+                                </groupui-grid-row>
+                            </groupui-grid>
+                        </div>
+                    </form>
+                </ng-container>
+                <!--Participants-->
+                <ng-container *ngIf="workshopView === 'Participants' && !measureListClick">
+                    <groupui-grid-row style="padding-top: 12px">
+                        <groupui-grid-col l="4" m="4" s="4">
+                            <groupui-search-field id="wc-sf-searchAccessRequestData" data-translate-key="ui.workshops.participants.static.label.calculation" (keyup)="searchParticipants($event)"
+                                                  (groupuiClearClicked)="searchAccessRequestData()"
+                                                  sub-string-highlighting="false">
+                            </groupui-search-field>
+
+
+                        </groupui-grid-col>
+                        <groupui-grid-col l="8" m="8" s="8">
+                            <div class="alignment-right">
+                                <groupui-button disabled="true" id="wc-gb-personSearchWorkshopOpen" icon="add-24" variant="primary"
+                                                (click)="personSearchWorkshopOpen = true;" data-translate-key="ui.workshops.participants.static.text.button.add_participants">Add Participants Manually
+                                </groupui-button>
+                                <groupui-button disabled="true" id="wc-gb-participants" icon="upload-24" (click)="fileInput.click();" style="margin-left: 16px" variant="primary" data-translate-key="ui.workshops.participants.static.text.button.import_participants">Import
+                                    Participants
+                                    <input #fileInput type="file" hidden (change)="doFileInput($event)">
+                                </groupui-button>
+                                <groupui-button disabled="true" id="wc-gb-downloadImportAttachment"  (click)="downloadImportAttachment()" icon="add-24" variant="secondary" style="margin-left: 16px" data-translate-key="ui.workshops.participants.static.text.button.download_template">Download
+                                    Template
+                                </groupui-button>
+                            </div>
+                        </groupui-grid-col>
+                    </groupui-grid-row>
+
+                    <div *ngIf="participantList?.length > 0" class="table-highlighted container-border table-container">
+                        <groupui-headline style="padding-top: 24px" heading="h6">{{'ui.workshops.participants.static.text.download_template' | staticTranslate}}
+                            ({{ participantList?.length }})
+                        </groupui-headline>
+                        <groupui-table id="wc-gt-table" columns="6" sticky="true" header="true" scrollX="true" scrollY="false"
+                                       striped="true">
+                            <groupui-table-cell>
+                                <groupui-checkbox></groupui-checkbox>
+                            </groupui-table-cell>
+                            <groupui-table-cell data-translate-key="ui.workshops.participants.static.text.table.name">Name</groupui-table-cell>
+                            <groupui-table-cell data-translate-key="ui.workshops.participants.static.text.table.ou">Organisation Unit</groupui-table-cell>
+                            <groupui-table-cell data-translate-key="ui.workshops.participants.static.text.table.email_phone">Email and Phone</groupui-table-cell>
+                            <groupui-table-cell *ngIf="!editMode">{{'ui.workshops.participants.static.text.table.select_participants' | staticTranslate}}<br>
+                                <span style="color: #35718E;font-size: 12px;font-weight: normal">{{'ui.workshops.participants.static.text.table.guest' | staticTranslate}} ({{ numberOfGuest }})</span>
+                            </groupui-table-cell>
+                            <groupui-table-cell *ngIf="editMode">{{'ui.workshops.participants.static.text.table.participant_type' | staticTranslate}}<br>
+                                <span style="color: #35718E;font-size: 12px;font-weight: normal">{{'ui.workshops.participants.static.text.table.guest' | staticTranslate}} ({{ numberOfGuest }})</span>
+                            </groupui-table-cell>
+                            <groupui-table-cell data-translate-key="ui.workshops.participants.static.text.table.action">Action</groupui-table-cell>
+                            <ng-container *ngFor="let participant of participantList; let i = index">
+                                <groupui-table-cell>
+                                    <groupui-checkbox></groupui-checkbox>
+                                </groupui-table-cell>
+                                <groupui-table-cell>{{participant.firstName && participant?.lastName ?  participant?.firstName + ' ' + participant?.lastName : participant?.fullName}}</groupui-table-cell>
+                                <groupui-table-cell>{{ participant?.department }}</groupui-table-cell>
+                                <groupui-table-cell>
+                                    <span>{{ participant?.email }}</span><br>
+                                    <span style="font-size: 12px">{{ participant?.phone }}</span>
+                                </groupui-table-cell>
+                                <groupui-table-cell>
+                                    <groupui-select disabled="true" id="wc-gs-participant" [value]="participant?.participantType" maxHeight="150px">
+                                        <groupui-select-option id="wc-gso-{{type.key}}" (click)="updatedParticipantType(type?.name,participant)"
+                                                               *ngFor="let type of participantType" [data-translate-key]="type.key"
+                                                               [value]="type?.name">{{type?.name}}
+                                        </groupui-select-option>
+                                    </groupui-select>
+                                </groupui-table-cell>
+                                <groupui-table-cell>
+                                    <groupui-button disabled="true" id="wc-gb-removeAddedParticipant" (click)="removeAddedParticipant(participant,i)" variant="tertiary"
+                                                    icon="delete-24"></groupui-button>
+                                </groupui-table-cell>
+                            </ng-container>
+                        </groupui-table>
+                    </div>
+
+
+                    <div *ngIf="participantList?.length === 0" class="table-container" style="margin-top: 25px;">
+                        <div class="no-records-found">
+                            <groupui-grid margin-type="flexible">
+                                <groupui-grid-row>
+                                    <groupui-grid-col style="text-align: center">
+                                        <img src="/assets/images/undraw_setup_re_y9w8%201.svg" alt="No Records Found">
+                                        <groupui-text data-translate-key="ui.workshops.participants.static.text.warning.no_participants">0 Participants added.</groupui-text>
+                                        <groupui-text style="color: #A8ADB3" data-translate-key="ui.workshops.participants.static.text.warning.add_participants_message">Please add participants manually or by
+                                            using a template.
+                                        </groupui-text>
+                                    </groupui-grid-col>
+                                </groupui-grid-row>
+                            </groupui-grid>
+                        </div>
+                    </div>
+                </ng-container>
+            </div>
+            <!--MeasureList Section-->
+            <div *ngIf="measureListClick" class="side-navigation-secondary-02">
+                <app-measures-list [workshopResponse]="workshopResponse" [measureDetails]="measureDetails"
+                                   [editMode]="editMode" [disabled]="true" [workshopScheduled]="workshopScheduled"></app-measures-list>
+            </div>
+            <!--attachment component-->
+            <!--            list attachments-->
+            <app-attachment [disabled]="true" *ngIf="workshopResponse && workshopResponse?.attachments && workshopResponse?.attachments?.length > 0" [workshopDetails]="workshopResponse" [isMeasureNew]="true"
+                            [attachmentType]="attachmentType"></app-attachment>
+            <!--            default no attachment-->
+            <app-attachment [disabled]="true" *ngIf="!(workshopResponse?.attachments) || workshopResponse?.attachments?.length==0" [workshopDetails]="workshopResponse" [isMeasureNew]="true"
+                            [attachmentType]="attachmentType"></app-attachment>
+        </div>
+    </groupui-grid-col>
+</groupui-grid-row>
+
+<groupui-modal *ngIf="openWarningModal" displayed="" padding="32px" s="5" m="5" l="4" margin="15% 0 0 0">
+    <groupui-grid-row>
+        <groupui-grid-col l="12" s="12" m="12">
+            <groupui-headline heading="h6" data-translate-key="ui.workshops.warning-modal.static.text.warning.un_saved_heading">You have unsaved changes. Please save them before you exit.
+            </groupui-headline>
+        </groupui-grid-col>
+        <groupui-grid-col l="12" s="12" m="12">
+            <div class="tip-box">
+                <div>
+                    <groupui-icon style="color: #FF9B00; display: inline-list-item "
+                                  name="warning-filled-24"></groupui-icon>
+                </div>
+                <div>
+                    <span data-translate-key="ui.workshops.warning-modal.static.text.warning.un_saved_message">We noticed you have unsaved changes. To avoid any loss of updated information, please click on save to save the updates.</span>
+                </div>
+            </div>
+        </groupui-grid-col>
+    </groupui-grid-row>
+
+    <div style="padding-top: 24px">
+        <groupui-grid-row>
+            <groupui-grid-col l="5" m="8" s="12">
+            </groupui-grid-col>
+            <groupui-grid-col l="7" m="4" s="12">
+                <div class="alignment-right">
+                    <groupui-button id="wc-gb-cancelWarningModal" severity="danger" (click)="cancelWarningModal()" size="s" class="text-16" data-translate-key="ui.workshops.warning-modal.static.button.cancel">Cancel
+                    </groupui-button>
+                    <div style="padding-left: 16px">
+                        <groupui-button id="wc-gb-updateExistingWorkshop" variant="secondary" (click)="updateExistingWorkshop()" size="s" class="text-16" data-translate-key="ui.workshops.warning-modal.static.button.save_changes">
+                            Save Changes
+                        </groupui-button>
+                    </div>
+                </div>
+            </groupui-grid-col>
+        </groupui-grid-row>
+    </div>
+</groupui-modal>
+
+<groupui-modal *ngIf="openWarningModalForDateAndTimeChange" (groupuiModalClose)="openWarningModalForDateAndTimeChange = false" displayed="" padding="32px" s="5" m="5" l="4" margin="15% 0 0 0">
+    <groupui-grid-row>
+        <groupui-grid-col l="12" s="12" m="12">
+            <groupui-headline heading="h6">This workshop is already scheduled.
+            </groupui-headline>
+        </groupui-grid-col>
+        <groupui-grid-col l="12" s="12" m="12">
+            <div class="tip-box">
+                <div>
+                    <groupui-icon style="color: #FF9B00; display: inline-list-item "
+                                  name="warning-filled-24"></groupui-icon>
+                </div>
+                <div>
+                    <span>We see that you’re attempting to reschedule the workshop. Kindly cancel the earlier invite for this meeting.</span>
+                </div>
+            </div>
+        </groupui-grid-col>
+    </groupui-grid-row>
+
+    <div style="padding-top: 24px">
+        <groupui-grid-row>
+            <groupui-grid-col l="5" m="8" s="12">
+            </groupui-grid-col>
+            <groupui-grid-col l="7" m="4" s="12">
+                <div class="alignment-right">
+                    <groupui-button id="wc-gb-cancelWarningModalForDateAndTimeChange" severity="danger" (click)="openWarningModalForDateAndTimeChange = false" size="s" class="text-16">Cancel
+                    </groupui-button>
+                    <div style="padding-left: 16px">
+                        <groupui-button id="wc-gb-updateExistingWorkshopForDateAndTimeChange" variant="secondary" (click)="setScheduleWorkshop(participantList, workshopSetupForm)" size="s" class="text-16">
+                            Reschedule
+                        </groupui-button>
+                    </div>
+                </div>
+            </groupui-grid-col>
+        </groupui-grid-row>
+    </div>
+</groupui-modal>
+
+<app-person-search *ngIf="personSearchOpen" (closeModel)="onPersonSearchModalClosed($event)"
+                   (onUserSelected)="responsibleSelected($event)"></app-person-search>
+<app-person-search-workshop *ngIf="personSearchWorkshopOpen" [isMultiSelect]="true"
+                            (closeModel)="onPersonSearchWorkshopModalClosed($event)"></app-person-search-workshop>
+<app-ou-tree-modal *ngIf="ouModalOpen "
+                                [filterOuByAccess]="true"
+                                (onSaveClicked)="closeOpenedModel($event)"
+                                (onCancelClicked)="closeOpenedModel($event)"
+>
+
+</app-ou-tree-modal>
+<app-clone-workshop *ngIf="openCloneModal" [workshopDetails]="cloneWorkshopData" [cloneAction]="cloneAction1"
+                    (closeModel)="closeActionModel($event)"
+                    (editClonedWorkshopData)="editClonedWorkshopData($event)"></app-clone-workshop>
+<app-clone-workshop *ngIf="openCloneList" [workshopDetails]="cloneWorkshopData" [cloneAction]="cloneAction2"
+                    (closeModel)="closeCloneList($event)"
+                    (editClonedWorkshopData)="editClonedWorkshopData($event)"></app-clone-workshop>

@@ -1,0 +1,1494 @@
+import {Component, Input, OnInit } from '@angular/core';
+import {ActivatedRoute, Router } from "@angular/router";
+import {TranslationService} from "../../../services/translation.service";
+import {LoaderService} from "../../../shared-modules/loader/loader.service";
+import {WorkshopsService} from "../workshops.service";
+import {NotificationService} from "../../../shared-modules/notification/notification.service";
+import {FormControl, FormGroup, Validators} from "@angular/forms";
+import {MeasuresService} from "../../measures/measures.service";
+import {DatePipe, LocationStrategy} from "@angular/common";
+import {TopicAreaService} from "../../topic-area/services/topic-area.service";
+import * as FileSaver from "file-saver";
+import {SUPER_USER} from "../../../config/constants/constants";
+import {RoleRightValidatorService} from "../../../services/role-right-validator.service";
+
+@Component({
+  selector: 'app-view-workshop',
+  templateUrl: './view-workshop.component.html',
+  styleUrls: ['./view-workshop.component.scss']
+})
+export class ViewWorkshopComponent implements OnInit {
+
+  @Input() languageCode = "EN";
+  isEditing = false
+  workshopTitle = ""
+  workshopView = "Workshop Setup";
+  personSearchWorkshopOpen: boolean = false;
+  personSearchOpen: boolean = false;
+  participantList: any = [];
+  participantListCopy: any = [];
+  workshopSaved: boolean = false;
+  measureListClick: boolean = false;
+  workshopClick: boolean = true;
+  workshopResponse: any;
+  measureDetails: any = [];
+  pageNumber: number = 0;
+  pageSize: number = 25;
+  sort: string = 'unsorted';
+  sortBy: string = 'measureId,DESC';
+  searchQueryParam: string = '';
+  workshopSetupForm: FormGroup | any;
+  keyFiguresForm: FormGroup | any;
+  isSubmitted: boolean = false;
+  ouModalOpen: boolean = false;
+  ouData: any;
+  timeIntervals: string[] = [];
+  selectedFromTime: string = "";
+  selectedToTime: string = "";
+  selectedFromIndex: number = 0;
+  numberOfGuest: number = 0;
+  editWorkshopId: string | null;
+  editMode: boolean = false;
+  workshopScheduled: boolean = false;
+  openWarningModal = false;
+  titleValidation: boolean = false;
+  setResponsibleType: number = 100;
+  // MWEBEVO-1792
+  goBackToMeasure: boolean = false;
+  measureId: string | null = null;
+  version: string | null = null;
+
+  attachmentType: string = 'Workshop';
+  waveList: any [] = ["1 - wave 1 direct area (current series)", "2 - Indirect staff / area", "3 - Product process before SOP", "4 - Supplier management logistics chain",
+    "Energy / CO2 / environment", "Problem solving"];
+  //Update waveListCopy whenever there is any change in abpve wavelist; waveListCopy to have Ids based on masks id created in KU for the below static maskNames
+  waveListCopy: any [] = [
+    {maskName: "1 - wave 1 direct area (current series)", id: 37},
+    {maskName: "2 - Indirect staff / area", id: 38},
+    {maskName: "3 - Product process before SOP", id: 39},
+    {maskName: "4 - Supplier management logistics chain", id: 40},
+    {maskName: "Energy / CO2 / environment", id: 41},
+    {maskName: "Problem solving", id: 42}];
+  kindOfWorkshops: any [] = [{
+    name: "Step 1 workshop",
+    key: "ui.workshops.create-workshop.static.kind_of_workshop.step1"
+  }, {
+    name: "Step 2 workshop",
+    key: "ui.workshops.create-workshop.static.kind_of_workshop.step2"
+  }, {name: "Step 3 workshop", key: "ui.workshops.create-workshop.static.kind_of_workshop.step3"},
+    {
+      name: "Step 4 workshop",
+      key: "ui.workshops.create-workshop.static.kind_of_workshop.step4"
+    }, {name: "Step 5 workshop", key: "ui.workshops.create-workshop.static.kind_of_workshop.step5"},
+    {
+      name: "Step 6 workshop",
+      key: "ui.workshops.create-workshop.static.kind_of_workshop.step6"
+    }, {name: "Step 7 workshop", key: "ui.workshops.create-workshop.static.kind_of_workshop.step7"}];
+  kindOfWorkshopList: any [] = [];
+  isWaveSelected: boolean = true;
+  methodList: any [] = []
+  selectedWave: any;
+  selectedKindOfWorkshop: any;
+  methodValue: any
+  draftWorkshopId: string | null;
+  measureCreated: boolean = false;
+  responsibleName: any;
+  participantType: any = [{name: 'EL employee', key: 'ui.global.person_search_workshop.el_employee'}, {
+    name: 'Planner',
+    key: 'ui.global.person_search_workshop.planner'
+  }, {name: 'Co-Moderator', key: 'ui.global.person_search_workshop.co-moderator'},
+    {name: 'Sub-division manager', key: 'ui.global.person_search_workshop.sub-division-manager'}, {
+      name: 'Manager',
+      key: 'ui.global.person_search_workshop.manager'
+    },
+    {name: 'Guest', key: 'ui.global.person_search_workshop.guest'}, {
+      name: 'Work council',
+      key: 'ui.global.person_search_workshop.work-council'
+    },
+    {name: 'Team Leader/Group Leader', key: 'ui.global.person_search_workshop.team-leader'}, {
+      name: 'Foreman/GL',
+      key: 'ui.global.person_search_workshop.foreman_gl'
+    },
+    {name: 'Resource', key: 'ui.global.person_search_workshop.resources'}, {
+      name: 'Other Technical Expert',
+      key: 'ui.global.person_search_workshop.other_technical_expert'
+    },
+    {name: 'Benchmark WS', key: 'ui.global.person_search_workshop.benchmark_ws'}, {
+      name: 'Confidence people',
+      key: 'ui.global.person_search_workshop.confidence_people'
+    }];
+
+  tradeList: any [] = [{
+    name: 'Assembly',
+    key: 'ui.workshops.create-workshop.static.trade.assembly'
+  }, {name: 'Automation', key: 'ui.workshops.create-workshop.static.trade.automation'}, {
+    name: 'Body construction',
+    key: 'ui.workshops.create-workshop.static.trade.body_construction'
+  },
+    {name: 'Component', key: 'ui.workshops.create-workshop.static.trade.component'}, {
+      name: 'Engine',
+      key: 'ui.workshops.create-workshop.static.trade.engine'
+    }, {name: 'Engineering', key: 'ui.workshops.create-workshop.static.trade.engineering'},
+    {name: 'Foundry', key: 'ui.workshops.create-workshop.static.trade.foundry'}, {
+      name: 'Gearbox',
+      key: 'ui.workshops.create-workshop.static.trade.gearbox'
+    }, {name: 'Logistics', key: 'ui.workshops.create-workshop.static.trade.logistics'},
+    {
+      name: 'Mechanical production',
+      key: 'ui.workshops.create-workshop.static.trade.mechanical_production'
+    }, {name: 'Other', key: 'ui.workshops.create-workshop.static.trade.other'}, {
+      name: 'Plastic',
+      key: 'ui.workshops.create-workshop.static.trade.plastic'
+    },
+    {name: 'Press shop', key: 'ui.workshops.create-workshop.static.trade.press_shop'}, {
+      name: 'Procurement',
+      key: 'ui.workshops.create-workshop.static.trade.procurement'
+    }, {name: 'Running gear', key: 'ui.workshops.create-workshop.static.trade.running_gear'},
+    {name: 'Seats', key: 'ui.workshops.create-workshop.static.trade.seats'}, {
+      name: 'Varnish',
+      key: 'ui.workshops.create-workshop.static.trade.varnish'
+    }]
+  isWave2: boolean = false
+  openCloneModal: boolean = false;
+  cloneWorkshopData: any;
+  cloneAction1: string = "cloneCreation"
+  cloneAction2: string = "getListOfClones"
+  editClonedWorkshopDetails: any;
+  showNextButton: boolean = false;
+  cloneWorkshopDetails: any;
+  numberOfClones: any;
+  openCloneList: boolean = false;
+  //search
+  noMeasureDataFoundSearch = false;
+  debounceTimer: any;
+  userDetailsResponsible: any;
+  userDetailsHeadOfOu: any;
+  userDetailsPresenter: any;
+  topicAreaResponse: any;
+  title: any;
+  showWorkshopSetUpModule: boolean = false;
+  topicArea: any;
+  maxTitleLength = 25;
+  userRight: any = [];
+  loggedInId: string = '';
+  openWarningModalForDateAndTimeChange: boolean = false;
+  measureLoaded: boolean = false;
+  accessWaveList: any[] = [];
+  selectedMaskId: any;
+
+  ngOnInit() {
+    this.activatedRoute.queryParams.subscribe(params => {
+      if (params["measureCreated"]) {
+        this.measureCreated = params["measureCreated"];
+        // nullify the query params after using it from create measure page
+        const modifiedParams = {...params, measureCreated: null};
+        this.router.navigate([], {
+          relativeTo: this.activatedRoute,
+          queryParams: modifiedParams,
+          queryParamsHandling: 'merge'
+        });
+      }
+      // MWEBEVO-1792
+      if (params['measureId']) {
+          this.goBackToMeasure = true;
+          const measureIdParam = params['measureId'];
+          const versionParam = params['version'];
+          this.measureId = measureIdParam ? measureIdParam : null;
+          this.version = versionParam ? versionParam : null;
+      }
+    });
+
+    if (this.editWorkshopId != null) {
+      // if request coming to edit cloned measure
+      if (this.editWorkshopId === "0") {
+        this.activatedRoute.queryParams.subscribe(params => {
+          this.editClonedWorkshopDetails = JSON.parse(params["data"]);
+          this.editClonedWorkshopData(this.editClonedWorkshopDetails);
+        });
+      } else {
+        // get the workshop details if request coming from edit workshop
+        this.getWorkshopDetailsById(this.editWorkshopId);
+      }
+      this.editMode = true;
+    } else if (this.draftWorkshopId) {
+      // normal flow
+      this.getWorkshopDetailsById(this.draftWorkshopId);
+    }
+    // generate time interval for selecting time
+    this.generateTimeIntervals();
+    this.getLoggedInUserDetails();
+
+    // workshop setup form
+    this.workshopSetupForm = new FormGroup({
+      workshopTitle: new FormControl('', []),
+      ou: new FormControl({value: '', disabled: this.editMode}, [Validators.required]),
+      responsibleName: new FormControl('', [Validators.required]),
+      headOfOuName: new FormControl('', []),
+      presenterName: new FormControl('', []),
+      kindOfWorkshop: new FormControl({value: '', disabled: false}, [Validators.required]),
+      method: new FormControl({value: '', disabled: false}, [Validators.required]),
+      topicArea: new FormControl({value: '', disabled: this.editMode}, [Validators.required]),
+      trade: new FormControl({value: '', disabled: this.isWave2}, [Validators.required]),
+      team: new FormControl('', []),
+      maskWave: new FormControl({value: '', disabled: this.editMode}, [Validators.required]),
+      maskWaveId: new FormControl({value: '', disabled: this.editMode}, [Validators.required]),
+      infoMail1: new FormControl(false, []),
+      infoMail2: new FormControl(false, []),
+      startDate: new FormControl('', [Validators.required]),
+      endDate: new FormControl('', [Validators.required]),
+      timeTo: new FormControl('', [Validators.required]),
+      timeFrom: new FormControl('', [Validators.required])
+    })
+
+
+    // key figure form
+    this.keyFiguresForm = new FormGroup({
+      costsPerYears: new FormControl('', [Validators.min(0)]),
+      personYears: new FormControl('', [Validators.min(0)]),
+      productiveTimeReport: new FormControl('', [Validators.min(0)]),
+      productiveTimeAverage: new FormControl('', [Validators.min(0)]),
+      labourTimeConsumed: new FormControl('', [Validators.min(0)]),
+      processingTime: new FormControl('', [Validators.min(0)]),
+      unitsPerDay: new FormControl('', [Validators.min(0)]),
+      strokesHEE: new FormControl('', [Validators.min(0)]),
+      inventory: new FormControl('', [Validators.min(0)]),
+      areas: new FormControl('', [Validators.min(0)]),
+      ergonomicWorkstations: new FormControl('', [Validators.min(0)]),
+      thereOfCritical: new FormControl('', [Validators.min(0)]),
+      initialSituationActualNotes: new FormControl('', []),
+      afterSituationTargetNotes: new FormControl('', []),
+      objectiveAndRange: new FormControl('', []),
+      calculation: new FormControl('', [])
+    })
+  }
+
+  constructor(private router: Router, public translationService: TranslationService, private loaderService: LoaderService, private datePipe: DatePipe, private workshopService: WorkshopsService, private notificationService: NotificationService, private activatedRoute: ActivatedRoute,
+              private measureService: MeasuresService, private location: LocationStrategy, private topicAreaService: TopicAreaService, private userRoleRightValidator : RoleRightValidatorService, private route: ActivatedRoute) {
+
+    // id coming for edit measure
+    this.editWorkshopId = this.activatedRoute.snapshot.paramMap.get('editWorkshopId') ? this.activatedRoute.snapshot.paramMap.get('editWorkshopId') : null;
+    // get draft workshop details by id
+    this.draftWorkshopId = this.activatedRoute.snapshot.paramMap.get('draftWorkshopId') ? this.activatedRoute.snapshot.paramMap.get('draftWorkshopId') : null;
+    // to handle going back with browser back button/gestures
+    //this.handleBackScenario();
+  }
+
+  handleBackScenario() {
+    history.pushState(null, '', window.location.href);
+    // check if back or forward button is pressed.
+    this.location.onPopState(() => {
+      history.pushState(null, '', window.location.href);
+      // handle warning popout by disabling back button/gestures
+      // pristine will help if any values are getting change in form
+      if (!this.workshopSetupForm.pristine || !this.keyFiguresForm.pristine) {
+        this.openWarningModal = true;
+      }
+    });
+  }
+
+  // update new or draft workshop detail after clicking on save
+  updatedNewWorkshop() {
+    this.isSubmitted = true;
+    if (this.workshopSetupForm.invalid || this.titleValidation) {
+      this.validationNotificationMessage();
+      return;
+    }
+    this.loaderService.show("WorkshopComponent");
+    // assigning values selected by the user
+    // merge both object (draft response and workshop setup data)
+    this.workshopResponse = {...this.workshopSetupForm.value, ...this.workshopResponse}
+    this.workshopResponse.infoMail1 = this.workshopSetupForm.controls['infoMail1']?.value;
+    this.workshopResponse.infoMail2 = this.workshopSetupForm.controls['infoMail2']?.value;
+    this.workshopResponse.mask = this.workshopSetupForm.controls['maskWave']?.value;
+    this.workshopResponse.maskId = this.selectedMaskId;
+    this.workshopResponse.ouId = this.ouData;
+    this.workshopResponse.participants = this.participantList;
+    this.workshopResponse.keyFiguresInitialSituation = this.keyFiguresForm.value;
+    this.workshopResponse.responsible = this.userDetailsResponsible;
+    this.workshopResponse.headOfOu = this.userDetailsHeadOfOu;
+    this.workshopResponse.presenter = this.userDetailsPresenter;
+    this.workshopResponse.topicArea = {id: this.topicArea.id, title: this.topicArea.title};
+    // mark workshop as workshopScheduled after user clicks on schedule workshop
+    this.workshopResponse.workshopScheduled = this.workshopScheduled;
+    // set measureLinked to true on the basis of list of measure length in workshop
+    this.workshopResponse.measureLinked = this.measureDetails?.length > 0;
+    this.workshopService.updateNewWorkshop(this.workshopResponse).subscribe(resp => {
+      if (resp != null) {
+        this.notificationService.show({
+          variant: 'primary',
+          severity: 'success',
+          autoDismiss: "5000",
+          notificationContent: resp?.message
+        });
+        this.workshopSaved = true;
+        this.router.navigate(['/workshops/edit-workshop/' + this.workshopResponse?.id]);
+        this.loaderService.hide("WorkshopComponent");
+      }
+    }, (error: any) => {
+      this.loaderService.hide("WorkshopComponent");
+    })
+  }
+
+  // update existing workshop
+  updateExistingWorkshop() {
+    // closing warning modal and updating all form pristine state to true
+    this.workshopSetupForm.pristine = true;
+    this.keyFiguresForm.pristine = true;
+    if (this.openWarningModal) {
+      this.openWarningModal = false;
+    }
+    this.isSubmitted = true;
+    if (this.workshopSetupForm.invalid) {
+      this.validationNotificationMessage();
+      return;
+    }
+    this.loaderService.show("WorkshopComponent");
+    this.workshopResponse.responsible = this.userDetailsResponsible;
+    this.workshopResponse.headOfOu = this.userDetailsHeadOfOu;
+    this.workshopResponse.presenter = this.userDetailsPresenter;
+    this.workshopResponse.kindOfWorkshop = this.workshopSetupForm.controls['kindOfWorkshop']?.value;
+    this.workshopResponse.trade = this.workshopSetupForm.controls['trade']?.value;
+    this.workshopResponse.team = this.workshopSetupForm.controls['team']?.value;
+    this.workshopResponse.infoMail1 = this.workshopSetupForm.controls['infoMail1']?.value;
+    this.workshopResponse.infoMail2 = this.workshopSetupForm.controls['infoMail2']?.value;
+    this.workshopResponse.keyFiguresInitialSituation = this.keyFiguresForm.value;
+    this.workshopResponse.method = this.workshopSetupForm.controls['method']?.value;
+    this.workshopResponse.mask = this.workshopSetupForm.controls['maskWave']?.value;
+    this.workshopResponse.maskId = this.selectedMaskId;
+    this.workshopResponse.startDate = this.workshopSetupForm.controls['startDate']?.value;
+    this.workshopResponse.endDate = this.workshopSetupForm.controls['endDate']?.value;
+    this.workshopResponse.timeFrom = this.workshopSetupForm.controls['timeFrom']?.value;
+    this.workshopResponse.timeTo = this.workshopSetupForm.controls['timeTo']?.value;
+    if (this.topicArea) {
+      this.workshopResponse.topicArea = {id: this.topicArea.id, title: this.topicArea.title};
+    }
+    // mark workshop as workshopScheduled after user clicks on schedule workshop
+    this.workshopResponse.workshopScheduled = this.workshopScheduled;
+    this.workshopResponse.participants = this.participantList;
+    this.workshopService.updateNewWorkshop(this.workshopResponse).subscribe(resp => {
+      if (resp != null) {
+        this.notificationService.show({
+          variant: 'primary',
+          severity: 'success',
+          autoDismiss: "5000",
+          notificationContent: "Your workshop details are updated and saved."
+        });
+        this.workshopSaved = true;
+        this.loaderService.hide("WorkshopComponent");
+      }
+    }, (error: any) => {
+      this.loaderService.hide("WorkshopComponent");
+    })
+  }
+
+  // edit the workshop details if any
+  editWorkshop() {
+    this.isSubmitted = true;
+    if (this.workshopSetupForm.invalid) {
+      this.validationNotificationMessage();
+      return;
+    }
+    this.loaderService.show("WorkshopComponent");
+    // mark workshop as measureLinked if any workshop get attached
+    this.workshopResponse.measureLinked = this.measureDetails?.content?.length > 0;
+    this.workshopService.updateNewWorkshop(this.workshopResponse).subscribe(resp => {
+      if (resp != null) {
+        this.notificationService.show({
+          variant: 'primary',
+          severity: 'success',
+          autoDismiss: "5000",
+          notificationContent: "Your workshop details are updated and saved."
+        });
+        this.workshopSaved = true;
+        this.loaderService.hide("WorkshopComponent");
+      }
+    }, (error: any) => {
+      this.loaderService.hide("WorkshopComponent");
+    })
+  }
+
+  // get the workshop details by ID when returning from measure creation after save page or edit scenario.
+  getWorkshopDetailsById(id: any) {
+    this.loaderService.show("WorkshopComponent");
+    this.workshopService.getWorkshopById(id).subscribe((resp: { payload: any; } | null) => {
+      if (resp != null) {
+        this.workshopResponse = resp?.payload;
+        this.workshopTitle = this.workshopResponse?.title;
+        // check if workshop is in draft
+        if (!this.workshopResponse?.draft) {
+          this.isWaveSelected = false;
+          this.workshopSetupForm.controls['ou'].setValue(this.workshopResponse?.ouId?.deptName + ":" + this.workshopResponse?.ouId?.description);
+          this.ouData = this.workshopResponse?.ouId;
+          // get user rights on the basis of ou and mask
+          this.userRight = this.userRoleRightValidator.getUserRight(this.workshopResponse?.ouId?.id,[this.workshopResponse?.maskId]);
+          this.getStandardMask();
+        } else {
+          // if workshop is in draft set edit mode to false
+          this.workshopSaved = false;
+          this.editMode = false;
+          this.workshopSetupForm.enable();
+          this.showWorkshopSetUpModule = true;
+          // to disable all the fields during draft as well
+          this.workshopSetupForm.disable();
+          this.workshopSetupForm.updateValueAndValidity();
+          this.keyFiguresForm.disable();
+          this.keyFiguresForm.updateValueAndValidity();
+          this.loaderService.hide("WorkshopComponent");
+        }
+
+        console.log('Calling measureList(), state:', history.state, 'measureDetails:', this.measureDetails);
+        if (history.state?.callMeasureList) {
+          this.measureList();
+        }
+      }
+    }, (error: any) => {
+      this.loaderService.hide("WorkshopComponent");
+    })
+  }
+
+  private getStandardMask() {
+    this.loaderService.show("WorkshopComponent");
+    this.workshopService.getAllStandardMasks(this.ouData?.id).subscribe(resp => {
+      if (resp) {
+        // here it will filter standard mask which user having access for along with those mask
+        // which is marked as available immediately.
+        this.accessWaveList = resp?.payload?.list?.filter((stdMask : any) => {
+          return this.waveListCopy.some((wave:any) => {
+            return  wave.id === stdMask.id;
+          })
+        })
+        if(!this.workshopResponse?.draft) {
+          this.workshopSetupForm.controls['maskWaveId'].setValue(this.workshopResponse?.maskId);
+          // set responsible, presenter and head off OU
+          this.setAllUserType();
+          // set mask, kind of workshop, method and topic area
+          this.setOtherFields();
+          this.workshopSetupForm.patchValue(this.workshopResponse);
+          this.keyFiguresForm.patchValue(this.workshopResponse?.keyFiguresInitialSituation);
+          if (this.workshopResponse?.participantViewDTO) {
+            this.participantList = this.workshopResponse?.participantViewDTO;
+            this.participantListCopy = this.participantList;
+            this.getGuestCountInParticipantList(this.participantList);
+          } else {
+            this.participantList = [];
+          }
+          this.workshopSaved = true;
+          this.workshopScheduled = this.workshopResponse?.workshopScheduled;
+          this.getAllCloneWorkshop(this.workshopResponse?.id);
+          this.getMeasureDetailForWorkshop(this.workshopResponse?.id);
+        }
+        // checking if topic area present or not
+        if (this.workshopResponse?.topicArea) {
+          this.getFilteredTopicAreas();
+        } else {
+          this.showWorkshopSetUpModule = true;
+          this.loaderService.hide("WorkshopComponent");
+        }
+        // to disable all the fields
+        this.workshopSetupForm.disable();
+        this.workshopSetupForm.updateValueAndValidity();
+        this.keyFiguresForm.disable();
+        this.keyFiguresForm.updateValueAndValidity();
+      }
+      this.loaderService.hide("WorkshopComponent");
+    }, error => {
+      this.loaderService.hide("WorkshopComponent");
+      this.notificationService.show({
+        variant: 'primary',
+        severity: 'danger',
+        autoDismiss: "1500",
+        notificationContent: error?.message
+      });
+    })
+  }
+
+  setAllUserType() {
+    if (this.workshopResponse?.responsible) {
+      this.userDetailsResponsible = this.workshopResponse?.responsible;
+      this.workshopSetupForm.controls['responsibleName'].setValue((this.workshopResponse?.responsible?.firstName && this.workshopResponse?.responsible?.lastName) ?
+          this.workshopResponse?.responsible?.firstName + ' ' + this.workshopResponse?.responsible?.lastName :
+          this.workshopResponse?.responsible?.fullName);
+    }
+    if (this.workshopResponse?.headOfOu) {
+      this.userDetailsHeadOfOu = this.workshopResponse?.headOfOu;
+      this.workshopSetupForm.controls['headOfOuName'].setValue((this.workshopResponse?.headOfOu?.firstName && this.workshopResponse?.headOfOu?.lastName) ?
+          this.workshopResponse?.headOfOu?.firstName + ' ' + this.workshopResponse?.headOfOu?.lastName :
+          this.workshopResponse?.headOfOu?.fullName);
+    }
+    if (this.workshopResponse?.presenter) {
+      this.userDetailsPresenter = this.workshopResponse?.presenter;
+      this.workshopSetupForm.controls['presenterName'].setValue((this.workshopResponse?.presenter?.firstName && this.workshopResponse?.presenter?.lastName) ?
+          this.workshopResponse?.presenter?.firstName + ' ' + this.workshopResponse?.presenter?.lastName :
+          this.workshopResponse?.presenter?.fullName);
+    }
+  }
+
+  setOtherFields() {
+    if (this.workshopResponse?.maskId !== undefined) {
+      this.setWave(this.workshopResponse?.maskId)
+    }
+    if (!this.workshopResponse?.topicArea) {
+      this.workshopSetupForm.controls['topicArea'].setValue("");
+      this.workshopSetupForm.controls['topicArea'].enable();
+      this.workshopSetupForm.get('topicArea').updateValueAndValidity();
+    }
+  }
+
+  // get the list of measure which is applicable for a particular workshop ID
+  getMeasureDetailForWorkshop(id: any) {
+    this.workshopService.getAllMeasureForWorkshop(id, this.pageNumber, this.pageSize, this.sortBy, this.searchQueryParam).subscribe((resp: {
+      payload: any;
+    } | null) => {
+      if (resp != null) {
+        this.measureDetails = resp?.payload;
+        this.measureLoaded = true;
+        if (this.measureCreated) {
+          this.measureList();
+          // edit workshop attribute measureLinked to true after users add measure in workshop
+          this.editWorkshop();
+          // reset measure created flag
+          this.measureCreated = false;
+        }
+      }
+    }, (error: any) => {
+      this.loaderService.hide("WorkshopComponent");
+    })
+  }
+
+  // default validation message
+  validationNotificationMessage() {
+    this.notificationService.show({
+      variant: 'primary',
+      severity: 'danger',
+      autoDismiss: "5000",
+      notificationContent: "Unable to save. Please ensure all required fields are filled correctly in 'Workshop Setup'."
+    });
+  }
+
+  // going back to workshop list
+  backToWorkshopList() {
+    // if any of the fields get updated while edit workshop
+    if (this.editMode) {
+      // pristine will help if any values are getting change in form
+      if (!this.workshopSetupForm.pristine || !this.keyFiguresForm.pristine) {
+        this.openWarningModal = true;
+      } else {
+        this.router.navigate(['/workshops']);
+      }
+    } else {
+      // normal create workshop flow
+      this.router.navigate(['/workshops']);
+    }
+  }
+
+  // for workshop title
+  startEditing() {
+    this.isEditing = true;
+    this.workshopSetupForm.controls['workshopTitle'].setValue(this.workshopResponse.title);
+  }
+
+  // for workshop title
+  stopEditing() {
+    // restricting not to save the title if title is empty
+    if (!this.titleValidation) {
+      this.isEditing = false;
+    }
+  }
+
+  // update workshop title
+  updateTitle(event: any) {
+    this.workshopTitle = event.target.value
+    // handling title required validation manually as the input field is conditional
+    if (this.workshopTitle === "") {
+      this.titleValidation = true;
+    } else {
+      this.titleValidation = false;
+      this.workshopResponse.title = this.workshopTitle;
+    }
+  }
+
+  // toggle between different workshop tab
+  workshopToggle(value: any) {
+    this.workshopView = value?.tab;
+  }
+
+  // close person search modal for adding external participants and spectrum searched participants
+  onPersonSearchWorkshopModalClosed(data: any) {
+    this.personSearchWorkshopOpen = false;
+    const participantsAlreadyPresent: any[] = [];
+    if (data) {
+      if (this.participantList?.length === 0) {
+        this.participantList = data;
+      } else {
+        data.forEach((participant: any) => {
+          this.participantList.forEach((item: any) => {
+            if (participant.id != null && (participant?.id?.id == item?.id?.id)) {
+              this.notificationService.show({
+                variant: 'primary',
+                severity: 'warning',
+                autoDismiss: "5000",
+                notificationContent: "Few added participants already exists in main participants list"
+              });
+              // make a list of participant which is already present
+              participantsAlreadyPresent.push(participant?.id?.id);
+            }
+          })
+          // restrict participants which is already present in participant list
+          if (!participantsAlreadyPresent?.includes(participant?.id?.id)) {
+            this.participantList.push(participant);
+          }
+        })
+      }
+      this.participantListCopy = this.participantList;
+      this.getGuestCountInParticipantList(this.participantList);
+    }
+  }
+
+  // close person search modal normal
+  onPersonSearchModalClosed(data: any) {
+    this.personSearchOpen = false;
+  }
+
+  // toggle to measure list left side tab
+  measureList() {
+    console.log('Inside measureList()');
+    this.measureListClick = true;
+    this.workshopClick = false;
+  }
+
+  // toggle to workshop left side tab
+  showWorkshop() {
+    this.workshopClick = true;
+    this.measureListClick = false;
+  }
+
+  // ou data modal close
+  closeOpenedModel(data: any) {
+    if (data) {
+      const ouNameAndDept = data.name.split(':');
+      data = {
+        id: data.id,
+        deptName: ouNameAndDept[0] || '',
+        description: ouNameAndDept[1] || '',
+      }
+      this.ouData = data;
+      this.workshopSetupForm.controls['ou'].setValue(this.ouData?.deptName + ':' + this.ouData?.description);
+      this.getStandardMask();
+    }
+    this.ouModalOpen = false;
+    this.getFilteredTopicAreas();
+  }
+
+  generateTimeIntervals() {
+    const times = [];
+
+    for (let h = 0; h < 24; h++) {
+      for (let m = 0; m < 60; m += 5) {
+        const period = h < 12 ? 'AM' : 'PM';
+        const hour = this.padZero(h % 12 === 0 ? 12 : h % 12); // Convert 0 and 12 to 12
+        const minutes = this.padZero(m);
+        times.push(`${hour}:${minutes} ${period}`);
+      }
+    }
+
+    this.timeIntervals = times;
+  }
+
+  padZero(num: number): string {
+    return num < 10 ? '0' + num : num.toString();
+  }
+
+  // update the to time if from time is selected
+  setTimeFromIndex(value: any) {
+    this.selectedFromTime = value;
+    this.selectedFromIndex = this.timeIntervals.indexOf(this.selectedFromTime);
+  }
+
+  // get the count for guest in participant list
+
+  getGuestCountInParticipantList(participantList: any) {
+    this.numberOfGuest = participantList.filter((participant: any) => participant.participantType === 'Guest').length;
+  }
+
+  // cancel warning modal if changes warning modal is open
+  cancelWarningModal() {
+    this.openWarningModal = false;
+    this.router.navigate(['/workshops']);
+  }
+
+  setScheduleWorkshop(participantList: any, workshopSetupForm: any) {
+    this.isSubmitted = true;
+    if (this.workshopSetupForm.invalid) {
+      this.notificationService.show({
+        variant: 'primary',
+        severity: 'danger',
+        autoDismiss: "5000",
+        notificationContent: "Unable to save. Please ensure all required fields are filled correctly in 'Workshop Setup'."
+      });
+      return;
+    }
+    let emailTo: string = '';
+    emailTo = participantList.filter((participant: any) => participant.email).map((participant: any) => participant.email).join(';');
+    if (emailTo == "") {
+      this.notificationService.show({
+        variant: 'primary',
+        severity: 'warning',
+        autoDismiss: "5000",
+        notificationContent: "Email id is not available for added participants"
+      });
+      this.openWarningModalForDateAndTimeChange = false;
+      return;
+    }
+    // default scenario while creating workshop or while edit if workshop is not schedule or in case of draft workshop
+    if (!this.workshopResponse?.workshopScheduled && !this.editMode) {
+      this.workshopScheduled = true;
+      let subject: string = this.workshopResponse.title
+      let attendees: string = emailTo;
+      let startTime = this.extractDate(workshopSetupForm.controls.startDate.value) + 'T' + this.convertTime12to24(workshopSetupForm.controls.timeFrom.value) + ':00';
+      let endTime = this.extractDate(workshopSetupForm.controls.endDate.value) + 'T' + this.convertTime12to24(workshopSetupForm.controls.timeTo.value) + ':00';
+      // let scheduleUrl = `https://teams.microsoft.com/l/meeting/new?subject=${subject}&&attendees=${attendees}&startTime=${startTime}&endTime=${endTime}&location=TeamsMeeting`
+      // window.open(scheduleUrl,'_black');
+      let url = `https://outlook.office.com/owa/?path=/calendar/action/compose&rru=addevent&startdt=${startTime}&enddt=${endTime}&subject=${subject}&to=${attendees}`
+      window.open(url, '_black');
+    } else {
+      // in case of changing workshop scenario while editing workshop
+      this.workshopScheduled = true;
+      this.openWarningModalForDateAndTimeChange = false;
+      this.workshopResponse.startDate = workshopSetupForm.controls['startDate']?.value;
+      this.workshopResponse.endDate = workshopSetupForm.controls['endDate']?.value;
+      this.workshopResponse.timeFrom = workshopSetupForm.controls['timeFrom']?.value;
+      this.workshopResponse.timeTo = workshopSetupForm.controls['timeTo']?.value;
+      let subject: string = this.workshopResponse.title
+      let attendees: string = emailTo;
+      let startTime = this.extractDate(workshopSetupForm.controls.startDate.value) + 'T' + this.convertTime12to24(workshopSetupForm.controls.timeFrom.value) + ':00';
+      let endTime = this.extractDate(workshopSetupForm.controls.endDate.value) + 'T' + this.convertTime12to24(workshopSetupForm.controls.timeTo.value) + ':00';
+      let url = `https://outlook.office.com/owa/?path=/calendar/action/compose&rru=addevent&startdt=${startTime}&enddt=${endTime}&subject=${subject}&to=${attendees}`
+      window.open(url, '_black');
+    }
+    if (this.workshopResponse?.draft) {
+      this.updatedNewWorkshop();
+    } else {
+      this.updateExistingWorkshop();
+    }
+  }
+
+  extractDate(dateString: string): string {
+    // Check if the string contains a time part
+    if (dateString?.includes('T')) {
+      return dateString.split('T')[0]; // Extract date from ISO format
+    }
+    return dateString; // Return the date as-is if it's already in 'YYYY-MM-DD' format
+  }
+
+  // Converting time in 12 to 24-hour format
+  convertTime12to24(time12h: string) {
+    const [time, modifier] = time12h.split(' ');
+    let [hours, minutes] = time.split(':');
+
+    // Handle AM/PM cases
+    if (modifier === 'AM') {
+      if (hours === '12') {
+        hours = '00'; // 12 AM is 00 hours
+      }
+    } else if (modifier === 'PM') {
+      if (hours !== '12') {
+        hours = (parseInt(hours, 10) + 12).toString(); // Convert PM to 24-hour format
+      }
+    }
+    return `${hours}:${minutes}`;
+  }
+
+  // update participant type from added participant list
+  updatedParticipantType(participantType: any, participant: any) {
+    this.participantList.forEach((item: any) => {
+      if (item.id != null && (item?.id == participant?.id)) {
+        // for spectrum search user as it is already saved in db.
+        item.participantType = participantType;
+      } else if (participant?.uniqueId && item?.uniqueId) {
+        // for non saved external user
+        if (participant?.uniqueId == item?.uniqueId) {
+          item.participantType = participantType;
+        }
+      }
+    });
+    this.getGuestCountInParticipantList(this.participantList);
+
+  }
+
+  // remove added participant
+  removeAddedParticipant(user: any, index: any) {
+    this.participantList.forEach((item: any) => {
+      if (item.id != null && (item?.id == user?.id)) {
+        // for spectrum search user as it is already saved in db.
+        this.participantList.splice(index, 1);
+      } else if (user?.uniqueId && item?.uniqueId) {
+        // for non saved external user
+        if (user?.uniqueId == item?.uniqueId) {
+          this.participantList.splice(index, 1);
+        }
+      }
+    })
+  }
+
+
+  setWave(waveId: any) {
+    this.workshopSetupForm.controls['topicArea'].setValue("");
+    this.isWaveSelected = false;
+    this.selectedWave = waveId
+    this.workshopResponse.maskId = this.selectedWave;
+    this.workshopSetupForm.get("maskWave").setValue(this.selectedWave)
+    this.selectedMaskId = waveId
+    this.getFilteredTopicAreas();
+    switch (this.selectedWave) {
+      case 37:
+        // trade mandatory , enable kindofworkshop, method, kindof workshop is mandatory and method is optional
+        this.workshopSetupForm.controls['trade'].enable();
+        this.workshopSetupForm.controls['method'].enable();
+        this.workshopSetupForm.controls['method'].setValidators(null);
+        this.workshopSetupForm.get('method').updateValueAndValidity();
+
+        this.workshopSetupForm.controls['kindOfWorkshop'].enable();
+        this.workshopSetupForm.controls['kindOfWorkshop'].setValue("")
+        this.workshopSetupForm.controls['kindOfWorkshop'].setValidators([Validators.required]);
+        this.workshopSetupForm.get('kindOfWorkshop').updateValueAndValidity();
+
+        this.workshopSetupForm.controls['trade'].setValidators([Validators.required]);
+        this.workshopSetupForm.get('trade').updateValueAndValidity();
+        // this.workshopSetupForm.setValidators([Validators.required]);
+        this.kindOfWorkshopList = this.kindOfWorkshops;
+        this.setKindOfWorkshop(this.workshopResponse.kindOfWorkshop);
+        break;
+      case 38:
+        // disable trade ,  kindofworkshop and method both are mandatory
+        this.isWave2 = true
+        this.workshopSetupForm.controls['trade'].disable();
+        this.workshopSetupForm.controls['method'].enable();
+        // this.workshopSetupForm.controls['kindOfWorkshop'].setValue('')
+        // this.workshopSetupForm.controls['kindOfWorkshop'].setValidators([Validators.required]);
+        // this.workshopSetupForm.get('kindOfWorkshop').updateValueAndValidity();
+        // // this.workshopSetupForm.controls['kindOfWorkshop'].setValue("")
+        // this.kindOfWorkshopList = ['Best Practice (Best of Benchmark)','Bottom Up','Top Down', 'Other']
+
+        this.workshopSetupForm.controls['trade'].setValue("")
+        this.workshopSetupForm.controls['trade'].setValidators(null);
+        this.workshopSetupForm.get('trade').updateValueAndValidity();
+
+        this.workshopSetupForm.controls['method'].setValue("")
+        this.workshopSetupForm.controls['method'].setValidators([Validators.required]);
+        this.workshopSetupForm.get('method').updateValueAndValidity();
+
+        this.workshopSetupForm.controls['kindOfWorkshop'].enable();
+        // this.workshopSetupForm.controls['kindOfWorkshop'].setValue("")
+        this.workshopSetupForm.controls['kindOfWorkshop'].setValidators([Validators.required]);
+        this.workshopSetupForm.get('kindOfWorkshop').updateValueAndValidity();
+        // this.workshopSetupForm.controls['kindOfWorkshop'].setValue("")
+        this.kindOfWorkshopList = [{
+          name: 'Best Practice (Best of Benchmark)',
+          key: "ui.workshops.create-workshop.static.kind_of_workshop.best_practice"
+        }, {name: 'Bottom Up', key: "ui.workshops.create-workshop.static.kind_of_workshop.bottom_up"},
+          {name: 'Top Down', key: "ui.workshops.create-workshop.static.kind_of_workshop.top_down"}, {
+            name: 'Other',
+            key: "ui.workshops.create-workshop.static.kind_of_workshop.other"
+          }]
+        this.setKindOfWorkshop(this.workshopResponse.kindOfWorkshop);
+        break;
+      case 39:
+        // enable trade , disable method , trade optional
+        this.workshopSetupForm.controls['trade'].enable();
+        this.workshopSetupForm.controls['kindOfWorkshop'].enable();
+        this.workshopSetupForm.controls['method'].disable();
+        this.workshopSetupForm.controls['method'].setValue("");
+        this.workshopSetupForm.controls['method'].setValidators(null);
+        this.workshopSetupForm.get('method').updateValueAndValidity();
+
+        this.workshopSetupForm.controls['kindOfWorkshop'].setValue("")
+        this.workshopSetupForm.controls['kindOfWorkshop'].setValidators([Validators.required]);
+        this.workshopSetupForm.get('kindOfWorkshop').updateValueAndValidity();
+
+        this.workshopSetupForm.controls['trade'].setValue("")
+        this.workshopSetupForm.controls['trade'].setValidators(null);
+        this.workshopSetupForm.get('trade').updateValueAndValidity();
+
+
+        this.methodList = []
+        this.kindOfWorkshopList = [{
+          name: '3P Logistic WS',
+          key: "ui.workshops.create-workshop.static.kind_of_workshop.3p_logistics"
+        }, {name: '3P Process WS', key: "ui.workshops.create-workshop.static.kind_of_workshop.3p_process"},
+          {
+            name: '3P Product WS',
+            key: "ui.workshops.create-workshop.static.kind_of_workshop.3p_product"
+          }, {name: '3P infrastructure', key: "ui.workshops.create-workshop.static.kind_of_workshop.3p_infra"},
+          {
+            name: 'Concept Workshop',
+            key: "ui.workshops.create-workshop.static.kind_of_workshop.concept_workshop"
+          }, {name: 'Creating workshop', key: "ui.workshops.create-workshop.static.kind_of_workshop.creating_workshop"},
+          {
+            name: 'Product checks',
+            key: "ui.workshops.create-workshop.static.kind_of_workshop.product_checks"
+          }, {name: 'Start-up workshop', key: "ui.workshops.create-workshop.static.kind_of_workshop.startup_workshop"},
+          {
+            name: 'Strategy workshop',
+            key: "ui.workshops.create-workshop.static.kind_of_workshop.strategy_workshop"
+          }, {name: 'Wertstrom', key: "ui.workshops.create-workshop.static.kind_of_workshop.wertstrom"}]
+        this.isWaveSelected = true;
+        this.setKindOfWorkshop(this.workshopResponse.kindOfWorkshop);
+        break;
+      case 40:
+        // enable trade , disable method and kindofworkshop, trade optional
+        this.workshopSetupForm.controls['trade'].enable();
+        this.workshopSetupForm.controls['method'].disable();
+        this.workshopSetupForm.controls['method'].setValue("")
+        this.workshopSetupForm.controls['method'].setValidators(null);
+        this.workshopSetupForm.get('method').updateValueAndValidity();
+        this.workshopSetupForm.controls['kindOfWorkshop'].disable();
+        this.workshopSetupForm.controls['kindOfWorkshop'].setValue("")
+        this.workshopSetupForm.get('kindOfWorkshop').setValidators(null);
+        this.workshopSetupForm.get('kindOfWorkshop').updateValueAndValidity();
+        this.workshopSetupForm.get('trade').setValidators(null);
+        this.workshopSetupForm.get('trade').updateValueAndValidity();
+        //no need of kind of
+        this.kindOfWorkshopList = []
+        this.methodList = []
+        this.isWaveSelected = true;
+        this.setKindOfWorkshop('');
+        break;
+      case 41:
+        // enable trade , disable method and kindofworkshop, trade mandatory
+        this.workshopSetupForm.controls['trade'].enable();
+        this.workshopSetupForm.controls['method'].disable();
+        this.workshopSetupForm.controls['kindOfWorkshop'].disable();
+        this.workshopSetupForm.controls['kindOfWorkshop'].setValue("")
+        this.workshopSetupForm.get('kindOfWorkshop').setValidators(null);
+        this.workshopSetupForm.get('kindOfWorkshop').updateValueAndValidity();
+        this.workshopSetupForm.controls['trade'].setValidators([Validators.required]);
+        this.workshopSetupForm.get('trade').updateValueAndValidity();
+        //no need of kind of
+        this.kindOfWorkshopList = []
+        this.methodList = []
+        this.isWaveSelected = true;
+        this.setKindOfWorkshop('');
+        break;
+      case 42:
+        // enable trade , disable method and kindofworkshop
+        this.workshopSetupForm.controls['trade'].enable();
+        this.workshopSetupForm.controls['method'].disable();
+        this.workshopSetupForm.controls['kindOfWorkshop'].disable();
+
+        this.workshopSetupForm.controls['kindOfWorkshop'].setValue("")
+        this.workshopSetupForm.get('kindOfWorkshop').setValidators(null);
+        this.workshopSetupForm.get('kindOfWorkshop').updateValueAndValidity();
+
+        this.workshopSetupForm.get('trade').setValidators(null);
+        this.workshopSetupForm.get('trade').updateValueAndValidity();
+        //no need of kind of
+        this.kindOfWorkshopList = []
+        this.methodList = []
+        this.isWaveSelected = true;
+        this.setKindOfWorkshop('');
+        break;
+      default :
+        this.workshopSetupForm.controls['kindOfWorkshop'].setValue("")
+        this.kindOfWorkshopList = []
+        this.isWaveSelected = true;
+        break;
+    }
+  }
+
+  setKindOfWorkshop(kind: any) {
+    this.selectedKindOfWorkshop = kind;
+    // this.workshopSetupForm.controls['kindOfWorkshop'].setValue(kind)
+    this.workshopSetupForm.controls['method'].setValue('')
+    if (kind?.includes('Step')) {
+      this.workshopSetupForm.controls['kindOfWorkshop'].setValue(kind)
+      this.methodList = [{
+        name: '5S-Workshop',
+        key: "ui.workshops.create-workshop.static.method.5s-workshop"
+      }, {name: 'CIP cascade workshop', key: "ui.workshops.create-workshop.static.method.cip.cascade.workshop"},
+        {
+          name: 'Energy balance',
+          key: "ui.workshops.create-workshop.static.method.energy.balance"
+        }, {name: 'Jidoka workshop', key: "ui.workshops.create-workshop.static.method.jidoka.workshop"},
+        {
+          name: 'Mechanical production',
+          key: "ui.workshops.create-workshop.static.method.mechanical.production"
+        }, {name: 'Paint-specific', key: "ui.workshops.create-workshop.static.method.paint-specific"},
+        {
+          name: 'Quick Check',
+          key: "ui.workshops.create-workshop.static.method.quick.check"
+        }, {name: 'Shoopfloor Management', key: "ui.workshops.create-workshop.static.method.shoopfloor.management"},
+        {
+          name: 'Similar to assembly',
+          key: "ui.workshops.create-workshop.static.method.similar.to.assembly"
+        }, {name: 'Standardised work', key: "ui.workshops.create-workshop.static.method.standardised.work"},
+        {
+          name: 'Status Check',
+          key: "ui.workshops.create-workshop.static.method.status.check"
+        }, {name: 'TPM/OEE workshop', key: "ui.workshops.create-workshop.static.method.tpm.oee.workshop"},
+        {
+          name: 'Tooling systems',
+          key: "ui.workshops.create-workshop.static.method.tooling.systems"
+        }, {name: 'Value stream design', key: "ui.workshops.create-workshop.static.method.value.stream.design"}];
+      this.setMethod(this.workshopResponse.method);
+    } else if (this.selectedWave === 38 && kind === 'Best Practice (Best of Benchmark)') {
+      this.workshopSetupForm.controls['kindOfWorkshop'].setValue(kind)
+      this.workshopSetupForm.controls['kindOfWorkshop'].setValue('')
+      this.methodList = [{
+        name: 'Benchmark WS',
+        key: "ui.workshops.create-workshop.static.method.benchmark.ws"
+      }, {name: 'Expert workshop', key: "ui.workshops.create-workshop.static.method.expert.workshop"}]
+      // this.setMethod('');
+      // this.workshopSetupForm.controls['method'].setValue("")
+      this.workshopSetupForm.controls['method'].setValidators([Validators.required]);
+      this.workshopSetupForm.get('method').updateValueAndValidity();
+    } else if (this.selectedWave === 38 && kind === 'Bottom Up') {
+      this.workshopSetupForm.controls['kindOfWorkshop'].setValue(kind)
+      this.workshopSetupForm.controls['kindOfWorkshop'].setValue('')
+      this.methodList = [{
+        name: 'Mixed ares, wave 1/2, stage 1',
+        key: "ui.workshops.create-workshop.static.method.mixed.ares.stage.1"
+      }, {name: 'Mixed ares, wave 1/2, stage 2', key: "ui.workshops.create-workshop.static.method.mixed.ares.stage.2"},
+        {name: 'Stufe 1', key: "ui.workshops.create-workshop.static.method.stufe.1"}, {
+          name: 'Stufe 2',
+          key: "ui.workshops.create-workshop.static.method.stufe.2"
+        },
+        {name: 'Stufe 3', key: "ui.workshops.create-workshop.static.method.stufe.3"}]
+      this.workshopSetupForm.controls['method'].setValidators([Validators.required]);
+      this.workshopSetupForm.get('method').updateValueAndValidity();
+      // this.setMethod(this.workshopResponse.method);
+    } else if (this.selectedWave === 38 && kind === 'Top Down') {
+      this.workshopSetupForm.controls['kindOfWorkshop'].setValue(kind)
+      this.methodList = [{
+        name: 'Top-down function test',
+        key: "ui.workshops.create-workshop.static.method.top-down.function.test"
+      }, {
+        name: 'Top-down process optimisation',
+        key: "ui.workshops.create-workshop.static.method.top-down.process.optimisation"
+      },
+        {
+          name: 'Top-down structure optimisation',
+          key: "ui.workshops.create-workshop.static.method.top-down.structure.optimisation"
+        }]
+      this.workshopSetupForm.controls['method'].setValidators([Validators.required]);
+      this.workshopSetupForm.get('method').updateValueAndValidity();
+      // this.setMethod(this.workshopResponse.method);
+    } else if (this.selectedWave === 38 && kind === 'Other' || this.selectedWave === 39) {
+      this.workshopSetupForm.controls['kindOfWorkshop'].setValue(kind)
+      this.methodList = [{
+        name: 'Material systems',
+        key: "ui.workshops.create-workshop.static.method.material.systems"
+      }, {name: 'Value stream design', key: "ui.workshops.create-workshop.static.method.value.stream.design"}]
+      this.workshopSetupForm.controls['method'].setValidators([Validators.required]);
+      this.workshopSetupForm.get('method').updateValueAndValidity();
+      // this.setMethod(this.workshopResponse.method);
+    } else {
+      this.methodList = []
+    }
+  }
+
+  setMethod(m: any) {
+    this.methodValue = m
+    this.workshopSetupForm.controls['method'].setValue(m)
+
+  }
+
+  responsibleSelected(user: any) {
+    if (this.setResponsibleType == 0 && user) {
+      this.userDetailsResponsible = user;
+      this.workshopSetupForm.controls['responsibleName'].setValue((this.userDetailsResponsible?.firstName && this.userDetailsResponsible?.lastName) ?
+          this.userDetailsResponsible?.firstName + ' ' + this.userDetailsResponsible?.lastName : this.userDetailsResponsible?.fullName);
+    } else if (this.setResponsibleType == 1 && user) {
+      this.userDetailsHeadOfOu = user;
+      this.workshopSetupForm.controls['headOfOuName'].setValue((this.userDetailsHeadOfOu?.firstName && this.userDetailsHeadOfOu?.lastName) ?
+          this.userDetailsHeadOfOu?.firstName + ' ' + this.userDetailsHeadOfOu?.lastName : this.userDetailsHeadOfOu?.fullName);
+    } else if (this.setResponsibleType == 2 && user) {
+      this.userDetailsPresenter = user;
+      this.workshopSetupForm.controls['presenterName'].setValue((this.userDetailsPresenter?.firstName && this.userDetailsPresenter?.lastName) ?
+          this.userDetailsPresenter?.firstName + ' ' + this.userDetailsPresenter?.lastName : this.userDetailsPresenter?.fullName);
+    }
+  }
+
+  searchParticipants(event: any) {
+    let searchString = event.target.value
+    if (searchString === '') {
+      this.participantList = this.participantListCopy;
+      return;
+    }
+    const filteredParticipants = this.participantListCopy.filter((p: any) =>
+        p.firstName.toLowerCase()?.includes(searchString.toLowerCase()) ||
+        p.lastName.toLowerCase()?.includes(searchString.toLowerCase()) ||
+        p.email?.toLowerCase()?.includes(searchString.toLowerCase()) ||  // Optional chaining
+        p.phone?.toLowerCase()?.includes(searchString.toLowerCase()) ||  // Optional chaining
+        p.department?.toLowerCase()?.includes(searchString.toLowerCase()) ||  // Optional chaining
+        p.participantType?.toLowerCase()?.includes(searchString.toLowerCase())  // Optional chaining
+    );
+    this.participantList = filteredParticipants;
+  }
+
+  searchAccessRequestData(query?: any) {
+    if (query?.value) {
+      this.noMeasureDataFoundSearch = true;
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = setTimeout(() => {
+        this.searchQueryParam = query.value;
+        this.getWorkshopDetailsById(this.editWorkshopId);
+      }, 500);
+    } else {
+      this.noMeasureDataFoundSearch = false;
+      this.searchQueryParam = '';
+      this.participantList = this.participantListCopy;
+    }
+  }
+
+  //For clone modal
+
+  // get all clone workshops associated with workshop
+  getAllCloneWorkshop(id: number): any {
+    this.workshopService.getCloneWorkshop(id).subscribe(resp => {
+      if (resp) {
+        this.numberOfClones = resp?.payload?.length;
+      }
+      this.loaderService.forceHide();
+    }, error => {
+      this.loaderService.hide("MeasureComponent");
+      this.notificationService.show({
+        variant: 'primary',
+        severity: 'danger',
+        autoDismiss: "1500",
+        notificationContent: error?.message
+      });
+    })
+  }
+
+  // clone list which opens immediately after clone workshop
+  createClone(workshopDetail: any) {
+    this.cloneWorkshopData = workshopDetail;
+    this.openCloneModal = true;
+  }
+
+  // close clone modal
+  closeActionModel(event: any) {
+    this.openCloneModal = false;
+    this.getWorkshopDetailsById(this.workshopResponse?.id);
+  }
+
+  // when workshop list get opened and user click on edit workshop also while clicking on next
+  editClonedWorkshopData(editWorkshopDetail: any) {
+    this.loaderService.show("EditMeasureComponent");
+    this.showNextButton = true;
+    this.editClonedWorkshopDetails = editWorkshopDetail;
+    //default scenario when user edits the cloned measure
+    this.cloneWorkshopDetails = this.editClonedWorkshopDetails?.cloneList?.[this.editClonedWorkshopDetails?.index];
+    this.getWorkshopDetailsById(this.cloneWorkshopDetails?.id);
+    this.openCloneModal = false;
+    this.openCloneList = false;
+    this.loaderService.forceHide();
+  }
+
+  // get next clone from list
+  getNextCloneInList(event: any) {
+    if (event?.target?.click) {
+      this.editClonedWorkshopDetails.index++
+      this.cloneWorkshopDetails = this.editClonedWorkshopDetails?.cloneList?.[this.editClonedWorkshopDetails?.index];
+      this.getWorkshopDetailsById(this.cloneWorkshopDetails?.id);
+    }
+  }
+
+  // to move back to previous element in list
+  getLastCloneInList(index: any) {
+    this.editClonedWorkshopDetails.index--;
+    this.cloneWorkshopDetails = this.editClonedWorkshopDetails?.cloneList?.[this.editClonedWorkshopDetails?.index];
+    this.getWorkshopDetailsById(this.cloneWorkshopDetails?.id);
+  }
+
+  cloneList(workshopResponse: any) {
+    this.cloneWorkshopData = workshopResponse;
+    this.openCloneList = true;
+  }
+
+  // clone the clone list
+  closeCloneList(event: any) {
+    this.openCloneList = false;
+    this.getWorkshopDetailsById(this.workshopResponse?.id);
+  }
+
+  // get the parent workshop from the list of clone while retrieving
+  getParentMeasure(id: number) {
+    this.showNextButton = false;
+    this.getWorkshopDetailsById(id)
+  }
+
+  // clone end
+
+  // Topic Area
+
+  // validation check in case use click on topicArea dropdown during create
+  checkTopicAreCondition() {
+    if (this.workshopSetupForm.controls['maskWave'].value == "" || this.ouData === undefined) {
+      this.notificationService.show({
+        variant: 'primary',
+        severity: 'warning',
+        autoDismiss: "5000",
+        notificationContent: "Please select OU & Mask/Wave value first."
+      });
+    }
+  }
+
+  getFilteredTopicAreas() {
+    // should not hit the api until we have mask and OU selected
+    if (this.workshopResponse?.maskId != undefined && this.ouData != undefined) {
+      this.topicAreaService.getTopicArea(this.pageNumber, this.pageSize, {
+        "title": this.title,
+        "orgUnit": this.ouData.id,
+        "mask": this.workshopResponse?.maskId ,
+        "workshop/measure": true
+      }).subscribe(resp => {
+        if (resp.payload.list.length > 0) {
+          this.topicAreaResponse = resp.payload.list;
+          if (this.workshopResponse?.topicArea) {
+            let exists = this.topicAreaResponse.filter((x: any) => x.id === this.workshopResponse?.topicArea?.id);
+            // if workshop contains topic area, but the id doesn't match with topicAreaResponse and topicArea not selected
+            // then enable the topic area field
+            if (exists?.length === 0 && !this.topicArea) {
+              this.workshopSetupForm.controls['topicArea'].setValue("");
+              this.workshopSetupForm.controls['topicArea'].enable();
+              this.workshopSetupForm.get('topicArea').updateValueAndValidity();
+              this.showWorkshopSetUpModule = true;
+              return;
+            }
+            this.workshopSetupForm.controls['topicArea'].setValue(this.workshopResponse?.topicArea?.id);
+            this.showWorkshopSetUpModule = true;
+          }
+        } else {
+          this.workshopSetupForm.controls['topicArea'].setValue("");
+          this.workshopSetupForm.controls['topicArea'].enable();
+          this.workshopSetupForm.get('topicArea').updateValueAndValidity();
+          this.showWorkshopSetUpModule = true;
+        }
+
+        this.loaderService.hide('true')
+      })
+    }
+    this.loaderService.hide('true')
+  }
+
+  topicAreaName(selectedTopic: any) {
+    this.workshopSetupForm.controls['topicArea'].setValue(selectedTopic.id);
+    this.topicArea = selectedTopic;
+  }
+
+  doFileInput(event: any) {
+    this.loaderService.show("true");
+    const fileName = event.target.files[0].name;
+    const ext: string | undefined = fileName.split('.').pop()?.toLowerCase();
+    if (ext != null && (ext === "csv" || ext === "xlsx")) {
+      const file = event.target.files[0];
+      this.workshopService.importParticipants(file).subscribe(resp => {
+        if (resp) {
+          resp.payload.forEach((participant: any) => {
+            participant.uniqueId = this.generateRandomId();
+            this.participantList.push(participant);
+          })
+          this.getGuestCountInParticipantList(this.participantList);
+          this.notificationService.show({
+            variant: 'primary',
+            severity: 'success',
+            autoDismiss: "5000",
+            notificationContent: resp.payload.length + " " + "Participant Imported Successfully"
+          });
+        }
+        this.loaderService.hide("true");
+      })
+    } else {
+      this.notificationService.show({
+        variant: 'primary',
+        severity: 'warning',
+        autoDismiss: "5000",
+        notificationContent: "Please provide excel file only"
+      });
+      this.loaderService.hide("true");
+    }
+  }
+
+  downloadImportAttachment() {
+    this.loaderService.show("true");
+    this.workshopService.downloadImportTemplate().subscribe((resp: Blob) => {
+      // const files : any[] = selectedFileNames[0].split('.');
+      const blob = new Blob([resp], {
+        type: 'multipart/form-data',
+      });
+      FileSaver.saveAs(
+          blob,
+          "Workshop_Participants_Import_Template.xlsx"
+      );
+      this.loaderService.hide("true");
+    })
+  }
+
+  downloadA3Sheet(workshopId: any) {
+    this.loaderService.show("CreateWorkshopComponent");
+    this.workshopService.downloadA3Sheet(workshopId).subscribe((resp: Blob) => {
+      const blob = new Blob([resp], {
+        type: 'multipart/form-data',
+      });
+      FileSaver.saveAs(
+          blob,
+          `A3-Sheet(W-Nr. ${workshopId}).pdf`
+      );
+      this.loaderService.hide("CreateWorkshopComponent");
+    }, (error: any) => {
+      this.loaderService.hide("CreateWorkshopComponent");
+      this.notificationService.show({
+        variant: 'primary',
+        severity: 'danger',
+        autoDismiss: "1500",
+        notificationContent: error?.message
+      });
+      console.log("Error", error);
+    })
+  }
+
+  getEllipsisText(text: string) {
+    if (text.length > this.maxTitleLength) {
+      return text.substring(0, this.maxTitleLength - 3) + ' ...';
+    }
+    return text;
+  }
+
+  // to get login details to get user specific ou details
+  getLoggedInUserDetails() {
+    // @ts-ignore
+    const loggedInUser = JSON.parse(sessionStorage.getItem('userDetails'));
+    const roleList = Object.keys(loggedInUser?.roleWithOu);
+
+    // @ts-ignore
+    const userInfo = JSON.parse(sessionStorage.getItem('userInfo'));
+    const specialRoles = userInfo?.specialRoleList;
+    if (roleList?.includes(SUPER_USER) || specialRoles.length > 0) {
+      this.loggedInId = '';
+    } else {
+      this.loggedInId = loggedInUser?.id;
+    }
+  }
+
+  openWarningModalForChangingWorkshopSchedule(participantList: any, workshopSetupForm: any) {
+    if (this.workshopSetupForm.controls.startDate.value === this.workshopResponse.startDate
+        && this.workshopSetupForm.controls.endDate.value === this.workshopResponse.endDate
+        && this.workshopSetupForm.controls.timeFrom.value === this.workshopResponse.timeFrom
+        && this.workshopSetupForm.controls.timeTo.value === this.workshopResponse.timeTo) {
+      this.notificationService.show({
+        variant: 'primary',
+        severity: 'warning',
+        autoDismiss: "5000",
+        notificationContent: "Warning: Selected date or time not updated."
+      });
+      return
+
+    }
+    this.openWarningModalForDateAndTimeChange = true
+  }
+
+  // generating random uniqueId
+  generateRandomId() {
+    const min = 10000;
+    const max = 99999;
+
+    // Generate a secure random value using crypto (browser environment)
+    const randomArray = new Uint32Array(1);
+    window.crypto.getRandomValues(randomArray);
+
+    // Ensure the random number falls within the range [min, max]
+    const randomNumber = min + (randomArray[0] % (max - min + 1));
+
+    return randomNumber.toString();
+  }
+
+  checkMaskValidation() {
+    if(!this.ouData) {
+      this.notificationService.show({
+        variant: 'primary',
+        severity: 'warning',
+        autoDismiss: "5000",
+        notificationContent: "Please select OU first."
+      });
+    } else if(this.accessWaveList.length === 0) {
+      this.notificationService.show({
+        variant: 'primary',
+        severity: 'warning',
+        autoDismiss: "5000",
+        notificationContent: "You don't have access to any masks related to the workshop, please contact admin"
+      });
+    }
+  }
+
+  // MWEBEVO-1792 - To handle case when workshop is opened from workshop link and user clicks on edit
+  // for draft workshop permission check
+  routeToCreateOrEdit(workshopDetails: any) {
+    if (workshopDetails?.draft) {
+      this.workshopService.checkDraftWorkshopPermission().subscribe(resp => {
+        if (resp != null) {
+          this.router.navigate(['/workshops/create-workshop', workshopDetails?.id])
+        }
+
+      }, error => {
+        this.loaderService.hide("WorkshopComponent");
+        this.notificationService.show({
+          variant: 'primary',
+          severity: 'danger',
+          autoDismiss: "3000",
+          notificationContent: error?.error?.message
+        });
+      })
+    } else {
+      // for edit workshop permission check
+      this.workshopService.checkEditWorkshopPermission(workshopDetails?.ouId?.id, workshopDetails?.maskId).subscribe(resp => {
+        if (resp != null) {
+          // MWEBEVO-1792
+          this.router.navigate(['/workshops/edit-workshop', workshopDetails?.id], {
+                                  queryParams: {
+                                      measureId: this.measureId,
+                                      version: this.version
+                                      }
+                                  });
+        }
+      }, error => {
+        this.loaderService.hide("WorkshopComponent");
+        this.notificationService.show({
+          variant: 'primary',
+          severity: 'danger',
+          autoDismiss: "3000",
+          notificationContent: error?.error?.message
+        });
+      })
+    }
+
+  }
+
+  getMaskNameById(maskId: any) {
+    let maskName: any;
+    this.waveListCopy.forEach((item: any) => {
+      if (item?.id === maskId) {
+        maskName = item.maskName;
+      }
+    })
+    return maskName;
+  }
+
+  // MWEBEVO-1792 : Go back to the specific measure when workshop is opened from the measure's workshop link
+  goBackToMeasurePage() {
+    const measureId = this.activatedRoute.snapshot.queryParams['measureId'];
+    const version = this.activatedRoute.snapshot.queryParams['version'];
+    if (this.editMode) {
+        if (!this.workshopSetupForm.pristine || !this.keyFiguresForm.pristine) {
+            this.openWarningModal = true;
+            }
+        else {
+            this.router.navigate(['/measures/edit-measure',measureId,version]);
+            }
+        }
+    else {
+        this.router.navigate(['/measures/edit-measure',measureId,version]);
+        }
+    }
+
+}
